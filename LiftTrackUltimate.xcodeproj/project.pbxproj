@@ -1,0 +1,980 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9768D0762D8C7CF600D2853B /* LiftTrackUltimateWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 9768D0532D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9768D0002D8C72EE00D2853B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9768CFE32D8C72EC00D2853B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9768CFEA2D8C72EC00D2853B;
+			remoteInfo = LiftTrackUltimate;
+		};
+		9768D00A2D8C72EE00D2853B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9768CFE32D8C72EC00D2853B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9768CFEA2D8C72EC00D2853B;
+			remoteInfo = LiftTrackUltimate;
+		};
+		9768D0632D8C7CF600D2853B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9768CFE32D8C72EC00D2853B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9768D0522D8C7CF400D2853B;
+			remoteInfo = "LiftTrackUltimateWatch Watch App";
+		};
+		9768D06D2D8C7CF600D2853B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9768CFE32D8C72EC00D2853B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9768D0522D8C7CF400D2853B;
+			remoteInfo = "LiftTrackUltimateWatch Watch App";
+		};
+		9768D0742D8C7CF600D2853B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9768CFE32D8C72EC00D2853B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9768D0522D8C7CF400D2853B;
+			remoteInfo = "LiftTrackUltimateWatch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9768D07A2D8C7CF600D2853B /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				9768D0762D8C7CF600D2853B /* LiftTrackUltimateWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		9768CFEB2D8C72EC00D2853B /* LiftTrackUltimate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LiftTrackUltimate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9768CFFF2D8C72EE00D2853B /* LiftTrackUltimateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiftTrackUltimateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9768D0092D8C72EE00D2853B /* LiftTrackUltimateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiftTrackUltimateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9768D0532D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LiftTrackUltimateWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9768D0622D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "LiftTrackUltimateWatch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9768D06C2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "LiftTrackUltimateWatch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9768D0112D8C72EE00D2853B /* Exceptions for "LiftTrackUltimate" folder in "LiftTrackUltimate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */;
+		};
+		9768D0842D8C7EFF00D2853B /* Exceptions for "LiftTrackUltimateWatchApp Watch App" folder in "LiftTrackUltimate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				WatchActiveWorkoutView.swift,
+				WatchHistoryView.swift,
+				WatchStatisticsView.swift,
+			);
+			target = 9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9768CFED2D8C72EC00D2853B /* LiftTrackUltimate */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9768D0112D8C72EE00D2853B /* Exceptions for "LiftTrackUltimate" folder in "LiftTrackUltimate" target */,
+			);
+			path = LiftTrackUltimate;
+			sourceTree = "<group>";
+		};
+		9768D0022D8C72EE00D2853B /* LiftTrackUltimateTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LiftTrackUltimateTests;
+			sourceTree = "<group>";
+		};
+		9768D00C2D8C72EE00D2853B /* LiftTrackUltimateUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LiftTrackUltimateUITests;
+			sourceTree = "<group>";
+		};
+		9768D0542D8C7CF400D2853B /* LiftTrackUltimateWatchApp Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9768D0842D8C7EFF00D2853B /* Exceptions for "LiftTrackUltimateWatchApp Watch App" folder in "LiftTrackUltimate" target */,
+			);
+			path = "LiftTrackUltimateWatchApp Watch App";
+			sourceTree = "<group>";
+		};
+		9768D0652D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "LiftTrackUltimateWatch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		9768D06F2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "LiftTrackUltimateWatch Watch AppUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9768CFE82D8C72EC00D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768CFFC2D8C72EE00D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0062D8C72EE00D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0502D8C7CF400D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D05F2D8C7CF600D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0692D8C7CF600D2853B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9768CFE22D8C72EC00D2853B = {
+			isa = PBXGroup;
+			children = (
+				9768CFED2D8C72EC00D2853B /* LiftTrackUltimate */,
+				9768D0022D8C72EE00D2853B /* LiftTrackUltimateTests */,
+				9768D00C2D8C72EE00D2853B /* LiftTrackUltimateUITests */,
+				9768D0542D8C7CF400D2853B /* LiftTrackUltimateWatchApp Watch App */,
+				9768D0652D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests */,
+				9768D06F2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests */,
+				9768CFEC2D8C72EC00D2853B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9768CFEC2D8C72EC00D2853B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9768CFEB2D8C72EC00D2853B /* LiftTrackUltimate.app */,
+				9768CFFF2D8C72EE00D2853B /* LiftTrackUltimateTests.xctest */,
+				9768D0092D8C72EE00D2853B /* LiftTrackUltimateUITests.xctest */,
+				9768D0532D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App.app */,
+				9768D0622D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests.xctest */,
+				9768D06C2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D0122D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimate" */;
+			buildPhases = (
+				9768CFE72D8C72EC00D2853B /* Sources */,
+				9768CFE82D8C72EC00D2853B /* Frameworks */,
+				9768CFE92D8C72EC00D2853B /* Resources */,
+				9768D07A2D8C7CF600D2853B /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9768D0752D8C7CF600D2853B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9768CFED2D8C72EC00D2853B /* LiftTrackUltimate */,
+			);
+			name = LiftTrackUltimate;
+			packageProductDependencies = (
+			);
+			productName = LiftTrackUltimate;
+			productReference = 9768CFEB2D8C72EC00D2853B /* LiftTrackUltimate.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9768CFFE2D8C72EE00D2853B /* LiftTrackUltimateTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D0172D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateTests" */;
+			buildPhases = (
+				9768CFFB2D8C72EE00D2853B /* Sources */,
+				9768CFFC2D8C72EE00D2853B /* Frameworks */,
+				9768CFFD2D8C72EE00D2853B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9768D0012D8C72EE00D2853B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9768D0022D8C72EE00D2853B /* LiftTrackUltimateTests */,
+			);
+			name = LiftTrackUltimateTests;
+			packageProductDependencies = (
+			);
+			productName = LiftTrackUltimateTests;
+			productReference = 9768CFFF2D8C72EE00D2853B /* LiftTrackUltimateTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9768D0082D8C72EE00D2853B /* LiftTrackUltimateUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D01A2D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateUITests" */;
+			buildPhases = (
+				9768D0052D8C72EE00D2853B /* Sources */,
+				9768D0062D8C72EE00D2853B /* Frameworks */,
+				9768D0072D8C72EE00D2853B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9768D00B2D8C72EE00D2853B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9768D00C2D8C72EE00D2853B /* LiftTrackUltimateUITests */,
+			);
+			name = LiftTrackUltimateUITests;
+			packageProductDependencies = (
+			);
+			productName = LiftTrackUltimateUITests;
+			productReference = 9768D0092D8C72EE00D2853B /* LiftTrackUltimateUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9768D0522D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D0772D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch App" */;
+			buildPhases = (
+				9768D04F2D8C7CF400D2853B /* Sources */,
+				9768D0502D8C7CF400D2853B /* Frameworks */,
+				9768D0512D8C7CF400D2853B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9768D0542D8C7CF400D2853B /* LiftTrackUltimateWatchApp Watch App */,
+			);
+			name = "LiftTrackUltimateWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "LiftTrackUltimateWatch Watch App";
+			productReference = 9768D0532D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9768D0612D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D07B2D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch AppTests" */;
+			buildPhases = (
+				9768D05E2D8C7CF600D2853B /* Sources */,
+				9768D05F2D8C7CF600D2853B /* Frameworks */,
+				9768D0602D8C7CF600D2853B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9768D0642D8C7CF600D2853B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9768D0652D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests */,
+			);
+			name = "LiftTrackUltimateWatch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "LiftTrackUltimateWatch Watch AppTests";
+			productReference = 9768D0622D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9768D06B2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9768D07E2D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch AppUITests" */;
+			buildPhases = (
+				9768D0682D8C7CF600D2853B /* Sources */,
+				9768D0692D8C7CF600D2853B /* Frameworks */,
+				9768D06A2D8C7CF600D2853B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9768D06E2D8C7CF600D2853B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9768D06F2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests */,
+			);
+			name = "LiftTrackUltimateWatch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "LiftTrackUltimateWatch Watch AppUITests";
+			productReference = 9768D06C2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9768CFE32D8C72EC00D2853B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					9768CFEA2D8C72EC00D2853B = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					9768CFFE2D8C72EE00D2853B = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9768CFEA2D8C72EC00D2853B;
+					};
+					9768D0082D8C72EE00D2853B = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9768CFEA2D8C72EC00D2853B;
+					};
+					9768D0522D8C7CF400D2853B = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					9768D0612D8C7CF600D2853B = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9768D0522D8C7CF400D2853B;
+					};
+					9768D06B2D8C7CF600D2853B = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9768D0522D8C7CF400D2853B;
+					};
+				};
+			};
+			buildConfigurationList = 9768CFE62D8C72EC00D2853B /* Build configuration list for PBXProject "LiftTrackUltimate" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9768CFE22D8C72EC00D2853B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9768CFEC2D8C72EC00D2853B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */,
+				9768CFFE2D8C72EE00D2853B /* LiftTrackUltimateTests */,
+				9768D0082D8C72EE00D2853B /* LiftTrackUltimateUITests */,
+				9768D0522D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App */,
+				9768D0612D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppTests */,
+				9768D06B2D8C7CF600D2853B /* LiftTrackUltimateWatch Watch AppUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9768CFE92D8C72EC00D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768CFFD2D8C72EE00D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0072D8C72EE00D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0512D8C7CF400D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0602D8C7CF600D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D06A2D8C7CF600D2853B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9768CFE72D8C72EC00D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768CFFB2D8C72EE00D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0052D8C72EE00D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D04F2D8C7CF400D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D05E2D8C7CF600D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9768D0682D8C7CF600D2853B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9768D0012D8C72EE00D2853B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */;
+			targetProxy = 9768D0002D8C72EE00D2853B /* PBXContainerItemProxy */;
+		};
+		9768D00B2D8C72EE00D2853B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9768CFEA2D8C72EC00D2853B /* LiftTrackUltimate */;
+			targetProxy = 9768D00A2D8C72EE00D2853B /* PBXContainerItemProxy */;
+		};
+		9768D0642D8C7CF600D2853B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9768D0522D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App */;
+			targetProxy = 9768D0632D8C7CF600D2853B /* PBXContainerItemProxy */;
+		};
+		9768D06E2D8C7CF600D2853B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9768D0522D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App */;
+			targetProxy = 9768D06D2D8C7CF600D2853B /* PBXContainerItemProxy */;
+		};
+		9768D0752D8C7CF600D2853B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9768D0522D8C7CF400D2853B /* LiftTrackUltimateWatch Watch App */;
+			targetProxy = 9768D0742D8C7CF600D2853B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9768D0132D8C72EE00D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LiftTrackUltimate/LiftTrackUltimate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"LiftTrackUltimate/Preview Content\"";
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiftTrackUltimate/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimate";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9768D0142D8C72EE00D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LiftTrackUltimate/LiftTrackUltimate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"LiftTrackUltimate/Preview Content\"";
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiftTrackUltimate/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimate";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9768D0152D8C72EE00D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9768D0162D8C72EE00D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9768D0182D8C72EE00D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiftTrackUltimate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LiftTrackUltimate";
+			};
+			name = Debug;
+		};
+		9768D0192D8C72EE00D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiftTrackUltimate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LiftTrackUltimate";
+			};
+			name = Release;
+		};
+		9768D01B2D8C72EE00D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LiftTrackUltimate;
+			};
+			name = Debug;
+		};
+		9768D01C2D8C72EE00D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LiftTrackUltimate;
+			};
+			name = Release;
+		};
+		9768D0782D8C7CF600D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = LiftTrackUltimateWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "gal-san.LiftTrackUltimate";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Debug;
+		};
+		9768D0792D8C7CF600D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = LiftTrackUltimateWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "gal-san.LiftTrackUltimate";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Release;
+		};
+		9768D07C2D8C7CF600D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiftTrackUltimateWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LiftTrackUltimateWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Debug;
+		};
+		9768D07D2D8C7CF600D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiftTrackUltimateWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LiftTrackUltimateWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Release;
+		};
+		9768D07F2D8C7CF600D2853B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "LiftTrackUltimateWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Debug;
+		};
+		9768D0802D8C7CF600D2853B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z3CPJ44539;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "gal-san.LiftTrackUltimateWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "LiftTrackUltimateWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.2;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9768CFE62D8C72EC00D2853B /* Build configuration list for PBXProject "LiftTrackUltimate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D0152D8C72EE00D2853B /* Debug */,
+				9768D0162D8C72EE00D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D0122D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D0132D8C72EE00D2853B /* Debug */,
+				9768D0142D8C72EE00D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D0172D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D0182D8C72EE00D2853B /* Debug */,
+				9768D0192D8C72EE00D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D01A2D8C72EE00D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D01B2D8C72EE00D2853B /* Debug */,
+				9768D01C2D8C72EE00D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D0772D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D0782D8C7CF600D2853B /* Debug */,
+				9768D0792D8C7CF600D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D07B2D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D07C2D8C7CF600D2853B /* Debug */,
+				9768D07D2D8C7CF600D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9768D07E2D8C7CF600D2853B /* Build configuration list for PBXNativeTarget "LiftTrackUltimateWatch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9768D07F2D8C7CF600D2853B /* Debug */,
+				9768D0802D8C7CF600D2853B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9768CFE32D8C72EC00D2853B /* Project object */;
+}
