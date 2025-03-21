@@ -232,24 +232,6 @@ struct ExerciseSelectionView: View {
     }
 }
 
-struct MuscleGroupPill: View {
-    var muscleGroup: String
-    var isSelected: Bool
-    var action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(muscleGroup)
-                .font(.system(size: 14, weight: isSelected ? .bold : .regular))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.blue : Color(.systemGray5))
-                .foregroundColor(isSelected ? .white : .primary)
-                .cornerRadius(20)
-        }
-    }
-}
-
 struct MultipleSelectionRow: View {
     var exercise: Exercise
     var isSelected: Bool

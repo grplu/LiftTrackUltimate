@@ -9,48 +9,12 @@ struct ActiveWorkoutView: View {
     @State private var timer: Timer? = nil
     @State private var isShowingNotes = false
     @State private var notes = ""
+    @State private var showFinishConfirmation = false
+    @State private var addExerciseButtonScale: CGFloat = 1.0
+    @State private var finishWorkoutButtonScale: CGFloat = 1.0
     @EnvironmentObject var dataManager: DataManager
     
-    init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
-        self.template = template
-        self.onEnd = onEnd
-        
-        // Initialize workout from template or empty
-        let initialWorkout: AppWorkout
-        if let template = template {
-            // Create workout exercises from template
-            let workoutExercises = template.exercises.map { templateExercise in
-                return WorkoutExercise(
-                    exercise: templateExercise.exercise,
-                    sets: (0..<templateExercise.targetSets).map { _ in
-                        ExerciseSet(reps: templateExercise.targetReps)
-                    }
-                )
-            }
-            
-            initialWorkout = AppWorkout(
-                id: UUID(),
-                name: template.name,
-                date: Date(),
-                duration: 0,
-                exercises: workoutExercises,
-                notes: ""
-            )
-        } else {
-            // Empty workout
-            initialWorkout = AppWorkout(
-                id: UUID(),
-                name: "Workout",
-                date: Date(),
-                duration: 0,
-                exercises: [],
-                notes: ""
-            )
-        }
-        
-        self._workout = State(initialValue: initialWorkout)
-    }
-    
+    // Conforming to View protocol by adding body
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -84,7 +48,15 @@ struct ActiveWorkoutView: View {
                 
                 // Add exercise button
                 Button(action: {
-                    // Show exercise selection
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        addExerciseButtonScale = 1.2
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            addExerciseButtonScale = 1.0
+                            // Add your exercise selection logic here
+                        }
+                    }
                 }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
@@ -96,12 +68,21 @@ struct ActiveWorkoutView: View {
                     .background(Color.blue.opacity(0.1))
                     .foregroundColor(.blue)
                     .cornerRadius(10)
+                    .scaleEffect(addExerciseButtonScale)
                 }
                 .padding(.horizontal)
                 
                 // Finish workout button
                 Button(action: {
-                    finishWorkout()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        finishWorkoutButtonScale = 1.2
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            finishWorkoutButtonScale = 1.0
+                            finishWorkout()
+                        }
+                    }
                 }) {
                     Text("Finish Workout")
                         .fontWeight(.semibold)
@@ -110,12 +91,13 @@ struct ActiveWorkoutView: View {
                         .background(Color.green)
                         .foregroundColor(.white)
                         .cornerRadius(10)
+                        .scaleEffect(finishWorkoutButtonScale)
                 }
                 .padding(.horizontal)
             }
             .padding(.vertical)
         }
-        .navigationBarTitle("", displayMode: .inline)
+        .navigationBarTitle("Workout", displayMode: .inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
@@ -145,6 +127,112 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             stopTimer()
         }
+        .alert("Finish Workout?", isPresented: $showFinishConfirmation) {
+            Button("Cancel", role: .cancel) {
+                // Do nothing, just dismiss the alert
+            }
+            Button("Finish", role: .destructive) {
+                // Save exercise performances
+                saveExercisePerformances()
+                
+                // Proceed with finishing the workout
+                workout.duration = elapsedTime
+                workout.notes = notes
+                dataManager.saveWorkout(workout)
+                onEnd() // Call the onEnd callback
+            }
+        } message: {
+            Text("Are you sure you want to finish this workout?")
+        }
+    }
+    
+    init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
+        self.template = template
+        self.onEnd = onEnd
+        
+        // Initialize workout from template or empty
+        let initialWorkout: AppWorkout
+        if let template = template {
+            let workoutExercises = template.exercises.map { templateExercise in
+                // Try to get last performance or use template defaults
+                let lastPerformance = DataManager.shared.getLastPerformance(for: templateExercise.exercise)
+                
+                return WorkoutExercise(
+                    exercise: templateExercise.exercise,
+                    sets: (0..<(lastPerformance?.totalSets ?? templateExercise.targetSets)).map { _ in
+                        ExerciseSet(
+                            reps: lastPerformance?.lastUsedReps ?? templateExercise.targetReps,
+                            weight: lastPerformance?.lastUsedWeight
+                        )
+                    }
+                )
+            }
+            
+            initialWorkout = AppWorkout(
+                id: UUID(),
+                name: template.name,
+                date: Date(),
+                duration: 0,
+                exercises: workoutExercises,
+                notes: ""
+            )
+        } else {
+            initialWorkout = AppWorkout(
+                id: UUID(),
+                name: "Workout",
+                date: Date(),
+                duration: 0,
+                exercises: [],
+                notes: ""
+            )
+        }
+        
+        self._workout = State(initialValue: initialWorkout)
+    }
+    
+    // Remaining methods (saveExercisePerformances, calculateAveragePerformance, etc.)
+    // should be added here, similar to the previous implementation
+    
+    private func saveExercisePerformances() {
+        for exercise in workout.exercises {
+            // Calculate average reps, sets, and weight
+            let (avgReps, avgWeight, totalSets) = calculateAveragePerformance(for: exercise)
+            
+            // Create performance record
+            let performance = ExercisePerformance(
+                exerciseId: exercise.exercise.id,
+                reps: avgReps,
+                weight: avgWeight,
+                sets: totalSets
+            )
+            
+            // Save to DataManager
+            dataManager.saveExercisePerformance(performance)
+        }
+    }
+    
+    private func calculateAveragePerformance(for workoutExercise: WorkoutExercise) -> (reps: Int, weight: Double?, sets: Int) {
+        // If no sets, return default values
+        guard !workoutExercise.sets.isEmpty else {
+            return (10, nil, 3)
+        }
+        
+        // Calculate average reps
+        let repsValues = workoutExercise.sets.compactMap { $0.reps }
+        let avgReps = repsValues.isEmpty ? 10 : Int(Double(repsValues.reduce(0, +)) / Double(repsValues.count))
+        
+        // Calculate average weight
+        let weightValues = workoutExercise.sets.compactMap { $0.weight }
+        let avgWeight = weightValues.isEmpty ? nil : weightValues.reduce(0, +) / Double(weightValues.count)
+        
+        // Total sets
+        let totalSets = workoutExercise.sets.count
+        
+        return (reps: avgReps, weight: avgWeight, sets: totalSets)
+    }
+    
+    private func finishWorkout() {
+        showFinishConfirmation = true
     }
     
     private func startTimer() {
@@ -161,28 +249,22 @@ struct ActiveWorkoutView: View {
     private func addSet(to exerciseIndex: Int) {
         // Get the existing reps value from the last set, if available
         let defaultReps: Int?
+        let defaultWeight: Double?
+        
         if let lastSet = workout.exercises[exerciseIndex].sets.last {
             defaultReps = lastSet.reps
+            defaultWeight = lastSet.weight
         } else {
-            defaultReps = 10 // Default value if no previous set
+            // Try to get from last performance
+            let lastPerformance = DataManager.shared.getLastPerformance(for: workout.exercises[exerciseIndex].exercise)
+            defaultReps = lastPerformance?.lastUsedReps ?? 10
+            defaultWeight = lastPerformance?.lastUsedWeight
         }
         
         // Add a new set
         workout.exercises[exerciseIndex].sets.append(
-            ExerciseSet(reps: defaultReps)
+            ExerciseSet(reps: defaultReps, weight: defaultWeight)
         )
-    }
-    
-    private func finishWorkout() {
-        // Update workout with final details
-        workout.duration = elapsedTime
-        workout.notes = notes
-        
-        // Save the workout
-        dataManager.saveWorkout(workout)
-        
-        // Call the onEnd callback
-        onEnd()
     }
     
     private func formatTime(_ timeInterval: TimeInterval) -> String {

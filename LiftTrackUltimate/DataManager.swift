@@ -8,17 +8,20 @@ class DataManager: ObservableObject {
     @Published var workouts: [AppWorkout] = []
     @Published var exercises: [Exercise] = []
     @Published var templates: [WorkoutTemplate] = []
+    @Published var exercisePerformances: [ExercisePerformance] = []
     
     private let profileKey = "userProfile"
     private let workoutsKey = "userWorkouts"
     private let exercisesKey = "exercises"
     private let templatesKey = "workoutTemplates"
+    private let exercisePerformancesKey = "exercisePerformances"
     
     init() {
         loadProfile()
         loadWorkouts()
         loadExercises()
         loadTemplates()
+        loadExercisePerformances()
         
         // If no exercises exist, load sample data
         if exercises.isEmpty {
@@ -104,13 +107,11 @@ class DataManager: ObservableObject {
         saveExercises()
     }
     
-    // Add this public method to update multiple exercises at once
     func updateExercises(_ exercises: [Exercise]) {
         self.exercises = exercises
         saveExercises()
     }
     
-    // Keep the original private method
     private func saveExercises() {
         if let encodedData = try? JSONEncoder().encode(exercises) {
             UserDefaults.standard.set(encodedData, forKey: exercisesKey)
@@ -147,6 +148,60 @@ class DataManager: ObservableObject {
         if let encodedData = try? JSONEncoder().encode(templates) {
             UserDefaults.standard.set(encodedData, forKey: templatesKey)
         }
+    }
+    
+    // MARK: - Exercise Performance Management
+    
+    func saveExercisePerformance(_ performance: ExercisePerformance) {
+        // Find index of existing performance for this exercise
+        if let index = exercisePerformances.firstIndex(where: { $0.exerciseId == performance.exerciseId }) {
+            // Update existing performance
+            exercisePerformances[index] = performance
+        } else {
+            // Add new performance
+            exercisePerformances.append(performance)
+        }
+        
+        // Save to UserDefaults
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(exercisePerformances)
+            UserDefaults.standard.set(data, forKey: exercisePerformancesKey)
+        } catch {
+            print("Error saving exercise performances: \(error)")
+        }
+        
+        // Update profile's exercise memory if a profile exists
+        var updatedProfile = profile
+        updatedProfile.updateExerciseMemory(
+            exerciseId: performance.exerciseId,
+            reps: performance.lastUsedReps,
+            sets: performance.totalSets,
+            weight: performance.lastUsedWeight
+        )
+        saveProfile(updatedProfile)
+    }
+    
+    private func loadExercisePerformances() {
+        if let data = UserDefaults.standard.data(forKey: exercisePerformancesKey) {
+            do {
+                let decoder = JSONDecoder()
+                let performances = try decoder.decode([ExercisePerformance].self, from: data)
+                self.exercisePerformances = performances
+            } catch {
+                print("Error decoding exercise performances: \(error)")
+                self.exercisePerformances = []
+            }
+        }
+    }
+    
+    func getLastPerformance(for exercise: Exercise) -> ExercisePerformance? {
+        return exercisePerformances.first { $0.exerciseId == exercise.id }
+    }
+    
+    func clearExercisePerformances() {
+        exercisePerformances.removeAll()
+        UserDefaults.standard.removeObject(forKey: exercisePerformancesKey)
     }
     
     // MARK: - Sample Data

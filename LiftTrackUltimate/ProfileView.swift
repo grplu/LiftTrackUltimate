@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileView: View {
     @State private var profile = UserProfile(name: "User", fitnessGoal: "Build Muscle")
     @State private var showingEditScreen = false
+    @State private var editButtonScale: CGFloat = 1.0
     
     var body: some View {
         NavigationView {
@@ -33,16 +34,23 @@ struct ProfileView: View {
                 .cornerRadius(10)
                 .shadow(radius: 2)
                 
-                // Workout stats summary will go here
-                
                 Spacer()
             }
             .padding()
             .navigationTitle("Profile")
             .toolbar {
                 Button("Edit") {
-                    showingEditScreen = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        editButtonScale = 1.2
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            editButtonScale = 1.0
+                            showingEditScreen = true
+                        }
+                    }
                 }
+                .scaleEffect(editButtonScale)
             }
             .sheet(isPresented: $showingEditScreen) {
                 ProfileEditView(profile: $profile)
@@ -66,3 +74,4 @@ struct ProfileRow: View {
         }
     }
 }
+

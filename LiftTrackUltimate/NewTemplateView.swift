@@ -4,6 +4,7 @@ struct NewTemplateView: View {
     @State private var templateName = ""
     @State private var selectedExercises: [TemplateExercise] = []
     @State private var showingExerciseSelection = false
+    @State private var buttonScale: CGFloat = 1.0
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
@@ -22,20 +23,22 @@ struct NewTemplateView: View {
                 // Selected exercises
                 List {
                     ForEach(selectedExercises) { templateExercise in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(templateExercise.exercise.name)
-                                .font(.headline)
-                            
-                            HStack {
-                                Text("\(templateExercise.targetSets) sets")
+                        HStack {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(templateExercise.exercise.name)
+                                    .font(.headline)
                                 
-                                if let reps = templateExercise.targetReps {
-                                    Text("•")
-                                    Text("\(reps) reps")
+                                HStack {
+                                    Text("\(templateExercise.targetSets) sets")
+                                    
+                                    if let reps = templateExercise.targetReps {
+                                        Text("•")
+                                        Text("\(reps) reps")
+                                    }
                                 }
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                             }
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 5)
                     }
@@ -44,9 +47,17 @@ struct NewTemplateView: View {
                     })
                 }
                 
-                // Add exercise button
+                // Add exercise button with cute animation
                 Button(action: {
-                    showingExerciseSelection = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        buttonScale = 1.2
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            buttonScale = 1.0
+                            showingExerciseSelection = true
+                        }
+                    }
                 }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
@@ -57,6 +68,7 @@ struct NewTemplateView: View {
                     .background(Color.blue.opacity(0.1))
                     .foregroundColor(.blue)
                     .cornerRadius(10)
+                    .scaleEffect(buttonScale)
                 }
                 .padding()
             }
@@ -81,16 +93,13 @@ struct NewTemplateView: View {
             .sheet(isPresented: $showingExerciseSelection) {
                 ExerciseSelectionView(
                     onSelect: { exercise in
-                        // Single selection callback
                         addExerciseToTemplate(exercise)
                         showingExerciseSelection = false
                     },
                     onSelectMultiple: { exercises in
-                        // Multiple selection callback
                         for exercise in exercises {
                             addExerciseToTemplate(exercise)
                         }
-                        // The view will dismiss itself after multi-selection
                     }
                 )
                 .environmentObject(dataManager)
@@ -100,10 +109,13 @@ struct NewTemplateView: View {
     
     // Helper function to add an exercise to the template
     private func addExerciseToTemplate(_ exercise: Exercise) {
+        // Check for last performance
+        let lastPerformance = dataManager.getLastPerformance(for: exercise)
+        
         let templateExercise = TemplateExercise(
             exercise: exercise,
-            targetSets: 3,
-            targetReps: 10
+            targetSets: lastPerformance?.totalSets ?? 3,
+            targetReps: lastPerformance?.lastUsedReps ?? 10
         )
         selectedExercises.append(templateExercise)
     }
