@@ -15,9 +15,12 @@ struct ProfileEditView: View {
     init(profile: Binding<UserProfile>) {
         self._profile = profile
         _name = State(initialValue: profile.wrappedValue.name)
-        _age = State(initialValue: profile.wrappedValue.age != nil ? "\(profile.wrappedValue.age!)" : "")
-        _weight = State(initialValue: profile.wrappedValue.weight != nil ? "\(profile.wrappedValue.weight!)" : "")
-        _height = State(initialValue: profile.wrappedValue.height != nil ? "\(profile.wrappedValue.height!)" : "")
+        _age = State(initialValue: profile.wrappedValue.birthDate != nil ?
+            String(Calendar.current.component(.year, from: Date()) - Calendar.current.component(.year, from: profile.wrappedValue.birthDate!)) : "")
+        _weight = State(initialValue: profile.wrappedValue.weight != nil ?
+            String(format: "%.1f", profile.wrappedValue.weight!) : "")
+        _height = State(initialValue: profile.wrappedValue.height != nil ?
+            String(format: "%.1f", profile.wrappedValue.height!) : "")
         _fitnessGoal = State(initialValue: profile.wrappedValue.fitnessGoal)
     }
     
@@ -59,7 +62,13 @@ struct ProfileEditView: View {
     
     func saveProfile() {
         profile.name = name
-        profile.age = Int(age)
+        
+        // Calculate birthDate from age
+        if let ageValue = Int(age) {
+            let currentYear = Calendar.current.component(.year, from: Date())
+            profile.birthDate = Calendar.current.date(from: DateComponents(year: currentYear - ageValue))
+        }
+        
         profile.weight = Double(weight)
         profile.height = Double(height)
         profile.fitnessGoal = fitnessGoal

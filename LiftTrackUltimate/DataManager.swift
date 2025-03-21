@@ -152,6 +152,61 @@ class DataManager: ObservableObject {
     
     // MARK: - Exercise Performance Management
     
+    func saveExercisePerformance(from workoutExercise: WorkoutExercise) {
+        let exerciseId = workoutExercise.exercise.id
+        
+        // Extract completed sets (only save data from completed sets)
+        let completedSets = workoutExercise.sets.filter { $0.completed }
+        guard !completedSets.isEmpty else { return }
+        
+        // Extract weights and reps from sets
+        let setWeights = completedSets.map { $0.weight }
+        let setReps = completedSets.map { $0.reps }
+        
+        // Calculate averages for progress tracking
+        let avgReps = setReps.compactMap { $0 }.isEmpty ? nil :
+                     Int(Double(setReps.compactMap { $0 }.reduce(0, +)) / Double(setReps.compactMap { $0 }.count))
+        let avgWeight = setWeights.compactMap { $0 }.isEmpty ? nil :
+                       setWeights.compactMap { $0 }.reduce(0, +) / Double(setWeights.compactMap { $0 }.count)
+        
+        // Get the last reps and weight (from the last set)
+        let lastUsedReps = completedSets.last?.reps
+        let lastUsedWeight = completedSets.last?.weight
+        
+        // Create or update performance object
+        var performance: ExercisePerformance
+        
+        if let existingIndex = exercisePerformances.firstIndex(where: { $0.exerciseId == exerciseId }) {
+            // Update existing performance
+            performance = exercisePerformances[existingIndex]
+            performance.date = Date()
+            performance.avgReps = avgReps
+            performance.avgWeight = avgWeight
+            performance.totalSets = completedSets.count
+            performance.lastUsedReps = lastUsedReps
+            performance.lastUsedWeight = lastUsedWeight
+            performance.setWeights = setWeights
+            performance.setReps = setReps
+            
+            exercisePerformances[existingIndex] = performance
+        } else {
+            // Create new performance
+            performance = ExercisePerformance(
+                exerciseId: exerciseId,
+                reps: avgReps,
+                weight: avgWeight,
+                sets: completedSets.count
+            )
+            performance.setWeights = setWeights
+            performance.setReps = setReps
+            
+            exercisePerformances.append(performance)
+        }
+        
+        // Save to UserDefaults
+        saveExercisePerformances()
+    }
+    
     func saveExercisePerformance(_ performance: ExercisePerformance) {
         // Find index of existing performance for this exercise
         if let index = exercisePerformances.firstIndex(where: { $0.exerciseId == performance.exerciseId }) {
@@ -163,6 +218,21 @@ class DataManager: ObservableObject {
         }
         
         // Save to UserDefaults
+        saveExercisePerformances()
+        
+        // Update profile's exercise memory if a profile exists
+        var updatedProfile = profile
+        updatedProfile.updateExerciseMemory(
+            exerciseId: performance.exerciseId,
+            reps: performance.lastUsedReps,
+            sets: performance.totalSets > 0 ? performance.totalSets : nil,
+            weight: performance.lastUsedWeight
+        )
+        saveProfile(updatedProfile)
+    }
+    
+    // Save all performances at once
+    private func saveExercisePerformances() {
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(exercisePerformances)
@@ -170,16 +240,6 @@ class DataManager: ObservableObject {
         } catch {
             print("Error saving exercise performances: \(error)")
         }
-        
-        // Update profile's exercise memory if a profile exists
-        var updatedProfile = profile
-        updatedProfile.updateExerciseMemory(
-            exerciseId: performance.exerciseId,
-            reps: performance.lastUsedReps,
-            sets: performance.totalSets,
-            weight: performance.lastUsedWeight
-        )
-        saveProfile(updatedProfile)
     }
     
     private func loadExercisePerformances() {
@@ -195,8 +255,39 @@ class DataManager: ObservableObject {
         }
     }
     
+    // Get the last performance for an exercise
     func getLastPerformance(for exercise: Exercise) -> ExercisePerformance? {
         return exercisePerformances.first { $0.exerciseId == exercise.id }
+    }
+    
+    // Get weight for a specific set
+    func getSetWeight(for exercise: Exercise, setIndex: Int) -> Double? {
+        guard let performance = getLastPerformance(for: exercise) else {
+            return nil
+        }
+        
+        // If we have saved weights for each set
+        if setIndex < performance.setWeights.count {
+            return performance.setWeights[setIndex]
+        }
+        
+        // Otherwise use the last weight
+        return performance.lastUsedWeight
+    }
+    
+    // Get reps for a specific set
+    func getSetReps(for exercise: Exercise, setIndex: Int) -> Int? {
+        guard let performance = getLastPerformance(for: exercise) else {
+            return nil
+        }
+        
+        // If we have saved reps for each set
+        if setIndex < performance.setReps.count {
+            return performance.setReps[setIndex]
+        }
+        
+        // Otherwise use the last reps
+        return performance.lastUsedReps
     }
     
     func clearExercisePerformances() {
@@ -206,7 +297,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Sample Data
     
-    private func loadSampleData() {
+    func loadSampleData() {
         // Sample Exercises
         let sampleExercises = [
             Exercise(name: "Bench Press", category: "Strength", muscleGroups: ["Chest", "Triceps"], instructions: "Lie on bench, lower barbell to chest, press up."),

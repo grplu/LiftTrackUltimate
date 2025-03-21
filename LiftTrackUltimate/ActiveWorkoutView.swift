@@ -12,6 +12,7 @@ struct ActiveWorkoutView: View {
     @State private var showFinishConfirmation = false
     @State private var addExerciseButtonScale: CGFloat = 1.0
     @State private var finishWorkoutButtonScale: CGFloat = 1.0
+    @State private var showingExerciseSelection = false
     @EnvironmentObject var dataManager: DataManager
     
     // Conforming to View protocol by adding body
@@ -54,7 +55,7 @@ struct ActiveWorkoutView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
                             addExerciseButtonScale = 1.0
-                            // Add your exercise selection logic here
+                            showingExerciseSelection = true
                         }
                     }
                 }) {
@@ -121,6 +122,12 @@ struct ActiveWorkoutView: View {
                     }
             }
         }
+        .sheet(isPresented: $showingExerciseSelection) {
+            ExerciseSelectionView { exercise in
+                addExerciseToWorkout(exercise)
+            }
+            .environmentObject(dataManager)
+        }
         .onAppear {
             startTimer()
         }
@@ -157,14 +164,22 @@ struct ActiveWorkoutView: View {
                 // Try to get last performance or use template defaults
                 let lastPerformance = DataManager.shared.getLastPerformance(for: templateExercise.exercise)
                 
+                // Create sets with individual weights from previous workout
+                let totalSets = lastPerformance?.totalSets ?? templateExercise.targetSets
+                
+                let sets = (0..<totalSets).map { setIndex -> ExerciseSet in
+                    let reps = DataManager.shared.getSetReps(for: templateExercise.exercise, setIndex: setIndex) ?? templateExercise.targetReps
+                    let weight = DataManager.shared.getSetWeight(for: templateExercise.exercise, setIndex: setIndex)
+                    
+                    return ExerciseSet(
+                        reps: reps,
+                        weight: weight
+                    )
+                }
+                
                 return WorkoutExercise(
                     exercise: templateExercise.exercise,
-                    sets: (0..<(lastPerformance?.totalSets ?? templateExercise.targetSets)).map { _ in
-                        ExerciseSet(
-                            reps: lastPerformance?.lastUsedReps ?? templateExercise.targetReps,
-                            weight: lastPerformance?.lastUsedWeight
-                        )
-                    }
+                    sets: sets
                 )
             }
             
@@ -190,45 +205,40 @@ struct ActiveWorkoutView: View {
         self._workout = State(initialValue: initialWorkout)
     }
     
-    // Remaining methods (saveExercisePerformances, calculateAveragePerformance, etc.)
-    // should be added here, similar to the previous implementation
+    private func addExerciseToWorkout(_ exercise: Exercise) {
+        // Try to get last performance
+        let lastPerformance = dataManager.getLastPerformance(for: exercise)
+        
+        // Determine sets and reps
+        let totalSets = lastPerformance?.totalSets ?? 3
+        let defaultReps = lastPerformance?.lastUsedReps ?? 10
+        
+        // Create sets with individual weights from previous workout
+        let sets = (0..<totalSets).map { setIndex -> ExerciseSet in
+            let reps = dataManager.getSetReps(for: exercise, setIndex: setIndex) ?? defaultReps
+            let weight = dataManager.getSetWeight(for: exercise, setIndex: setIndex)
+            
+            return ExerciseSet(
+                reps: reps,
+                weight: weight
+            )
+        }
+        
+        // Create the workout exercise
+        let workoutExercise = WorkoutExercise(
+            exercise: exercise,
+            sets: sets
+        )
+        
+        // Add to workout
+        workout.exercises.append(workoutExercise)
+    }
     
     private func saveExercisePerformances() {
         for exercise in workout.exercises {
-            // Calculate average reps, sets, and weight
-            let (avgReps, avgWeight, totalSets) = calculateAveragePerformance(for: exercise)
-            
-            // Create performance record
-            let performance = ExercisePerformance(
-                exerciseId: exercise.exercise.id,
-                reps: avgReps,
-                weight: avgWeight,
-                sets: totalSets
-            )
-            
-            // Save to DataManager
-            dataManager.saveExercisePerformance(performance)
+            // Save performance data with individual set data
+            dataManager.saveExercisePerformance(from: exercise)
         }
-    }
-    
-    private func calculateAveragePerformance(for workoutExercise: WorkoutExercise) -> (reps: Int, weight: Double?, sets: Int) {
-        // If no sets, return default values
-        guard !workoutExercise.sets.isEmpty else {
-            return (10, nil, 3)
-        }
-        
-        // Calculate average reps
-        let repsValues = workoutExercise.sets.compactMap { $0.reps }
-        let avgReps = repsValues.isEmpty ? 10 : Int(Double(repsValues.reduce(0, +)) / Double(repsValues.count))
-        
-        // Calculate average weight
-        let weightValues = workoutExercise.sets.compactMap { $0.weight }
-        let avgWeight = weightValues.isEmpty ? nil : weightValues.reduce(0, +) / Double(weightValues.count)
-        
-        // Total sets
-        let totalSets = workoutExercise.sets.count
-        
-        return (reps: avgReps, weight: avgWeight, sets: totalSets)
     }
     
     private func finishWorkout() {
@@ -247,18 +257,21 @@ struct ActiveWorkoutView: View {
     }
     
     private func addSet(to exerciseIndex: Int) {
-        // Get the existing reps value from the last set, if available
-        let defaultReps: Int?
-        let defaultWeight: Double?
+        let currentExercise = workout.exercises[exerciseIndex]
         
-        if let lastSet = workout.exercises[exerciseIndex].sets.last {
+        // Determine default values based on the last set
+        var defaultReps: Int? = 10
+        var defaultWeight: Double? = nil
+        
+        if let lastSet = currentExercise.sets.last, lastSet.completed {
+            // If there's a completed set, use those values
             defaultReps = lastSet.reps
             defaultWeight = lastSet.weight
         } else {
-            // Try to get from last performance
-            let lastPerformance = DataManager.shared.getLastPerformance(for: workout.exercises[exerciseIndex].exercise)
-            defaultReps = lastPerformance?.lastUsedReps ?? 10
-            defaultWeight = lastPerformance?.lastUsedWeight
+            // Try to get values from performance history
+            let setIndex = currentExercise.sets.count // Next set index
+            defaultReps = dataManager.getSetReps(for: currentExercise.exercise, setIndex: setIndex) ?? 10
+            defaultWeight = dataManager.getSetWeight(for: currentExercise.exercise, setIndex: setIndex)
         }
         
         // Add a new set

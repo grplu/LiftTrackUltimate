@@ -5,7 +5,7 @@ struct ContentView: View {
     
     var body: some View {
         TabView {
-            ProfileView()
+            ProfileView(profile: $dataManager.profile)
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
