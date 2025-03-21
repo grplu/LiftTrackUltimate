@@ -5,7 +5,8 @@ struct ContentView: View {
     
     var body: some View {
         TabView {
-            ProfileView(profile: $dataManager.profile)
+            // Updated ProfileView with a ProfileViewModel that uses the dataManager.profile
+            ProfileView(viewModel: createProfileViewModel())
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
@@ -31,5 +32,19 @@ struct ContentView: View {
                 }
         }
         .environmentObject(dataManager)
+    }
+    
+    // Create a ProfileViewModel that is connected to dataManager.profile
+    private func createProfileViewModel() -> ProfileViewModel {
+        let viewModel = ProfileViewModel()
+        viewModel.userProfile = dataManager.profile
+        
+        // Add a custom save implementation that updates dataManager.profile
+        viewModel.saveProfile = {
+            // This ensures changes in viewModel.userProfile are saved back to dataManager
+            self.dataManager.profile = viewModel.userProfile
+        }
+        
+        return viewModel
     }
 }

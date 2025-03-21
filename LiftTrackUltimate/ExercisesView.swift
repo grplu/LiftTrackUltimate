@@ -7,7 +7,7 @@ struct ExercisesView: View {
     @State private var showingNewExerciseView = false
     
     // Muscle group filters
-    let muscleGroups = ["All", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core"]
+    let muscleGroups = ["All", "Chest", "Back", "Shoulders", "Delts", "Arms", "Legs", "Core"]
     
     var filteredExercises: [Exercise] {
         // First filter by muscle group

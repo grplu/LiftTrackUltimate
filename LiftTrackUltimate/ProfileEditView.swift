@@ -2,75 +2,112 @@ import SwiftUI
 
 struct ProfileEditView: View {
     @Binding var profile: UserProfile
-    @Environment(\.dismiss) private var dismiss
+    var onSave: () -> Void
+    @Environment(\.presentationMode) var presentationMode
     
-    @State private var name: String = ""
-    @State private var age: String = ""
-    @State private var weight: String = ""
-    @State private var height: String = ""
-    @State private var fitnessGoal: String = ""
+    // Strings for optional values
+    @State private var heightString: String = ""
+    @State private var weightString: String = ""
     
-    let goals = ["Weight Loss", "Build Muscle", "Improve Strength", "Improve Endurance", "General Fitness"]
+    // Available fitness goals
+    let fitnessGoals = [
+        "Strength Training",
+        "Muscle Building",
+        "Weight Loss",
+        "Endurance",
+        "Athletic Performance",
+        "General Fitness"
+    ]
     
-    init(profile: Binding<UserProfile>) {
+    init(profile: Binding<UserProfile>, onSave: @escaping () -> Void) {
         self._profile = profile
-        _name = State(initialValue: profile.wrappedValue.name)
-        _age = State(initialValue: profile.wrappedValue.birthDate != nil ?
-            String(Calendar.current.component(.year, from: Date()) - Calendar.current.component(.year, from: profile.wrappedValue.birthDate!)) : "")
-        _weight = State(initialValue: profile.wrappedValue.weight != nil ?
-            String(format: "%.1f", profile.wrappedValue.weight!) : "")
-        _height = State(initialValue: profile.wrappedValue.height != nil ?
-            String(format: "%.1f", profile.wrappedValue.height!) : "")
-        _fitnessGoal = State(initialValue: profile.wrappedValue.fitnessGoal)
+        self.onSave = onSave
+        
+        // Initialize height string if available
+        if let height = profile.wrappedValue.height {
+            self._heightString = State(initialValue: String(format: "%.1f", height))
+        }
+        
+        // Initialize weight string if available
+        if let weight = profile.wrappedValue.weight {
+            self._weightString = State(initialValue: String(format: "%.1f", weight))
+        }
     }
     
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Personal Information")) {
-                    TextField("Name", text: $name)
-                    TextField("Age", text: $age)
-                        .keyboardType(.numberPad)
-                    TextField("Weight (kg)", text: $weight)
-                        .keyboardType(.decimalPad)
-                    TextField("Height (cm)", text: $height)
+                // Personal Information
+                Section(header: Text("Personal Information").font(LiftTheme.Typography.captionBold)) {
+                    TextField("Name", text: $profile.name)
+                        .font(LiftTheme.Typography.body)
+                    
+                    Picker("Fitness Goal", selection: $profile.fitnessGoal) {
+                        ForEach(fitnessGoals, id: \.self) { goal in
+                            Text(goal).tag(goal)
+                        }
+                    }
+                    .font(LiftTheme.Typography.body)
+                }
+                
+                // Physical Information
+                Section(header: Text("Physical Information").font(LiftTheme.Typography.captionBold)) {
+                    TextField("Height (cm)", text: $heightString)
+                        .font(LiftTheme.Typography.body)
                         .keyboardType(.decimalPad)
                     
-                    Picker("Fitness Goal", selection: $fitnessGoal) {
-                        ForEach(goals, id: \.self) {
-                            Text($0)
-                        }
+                    TextField("Weight (kg)", text: $weightString)
+                        .font(LiftTheme.Typography.body)
+                        .keyboardType(.decimalPad)
+                }
+                
+                // Birth Date (if needed)
+                if let birthDate = profile.birthDate {
+                    Section(header: Text("Birth Date").font(LiftTheme.Typography.captionBold)) {
+                        DatePicker(
+                            "Birth Date",
+                            selection: Binding(
+                                get: { birthDate },
+                                set: { profile.birthDate = $0 }
+                            ),
+                            displayedComponents: .date
+                        )
+                        .font(LiftTheme.Typography.body)
                     }
                 }
             }
             .navigationTitle("Edit Profile")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveProfile()
-                        dismiss()
-                    }
+                .foregroundColor(LiftTheme.Colors.primary),
+                
+                trailing: Button("Save") {
+                    saveProfile()
                 }
-            }
+                .font(.body.bold())
+                .foregroundColor(LiftTheme.Colors.primary)
+            )
         }
     }
     
-    func saveProfile() {
-        profile.name = name
-        
-        // Calculate birthDate from age
-        if let ageValue = Int(age) {
-            let currentYear = Calendar.current.component(.year, from: Date())
-            profile.birthDate = Calendar.current.date(from: DateComponents(year: currentYear - ageValue))
+    private func saveProfile() {
+        // Convert height string to Double if possible
+        if let height = Double(heightString) {
+            profile.height = height
         }
         
-        profile.weight = Double(weight)
-        profile.height = Double(height)
-        profile.fitnessGoal = fitnessGoal
+        // Convert weight string to Double if possible
+        if let weight = Double(weightString) {
+            profile.weight = weight
+        }
+        
+        // Call the save callback
+        onSave()
+        
+        // Dismiss the sheet
+        presentationMode.wrappedValue.dismiss()
     }
 }
