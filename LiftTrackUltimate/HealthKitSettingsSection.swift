@@ -8,6 +8,7 @@ struct HealthKitSettingsSection: View {
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var isLoading = false
+    @State private var showingHeartRateMonitor = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -100,6 +101,32 @@ struct HealthKitSettingsSection: View {
                             .background(Color.white)
                             .cornerRadius(8)
                         }
+                        
+                        if healthKitManager.isAuthorized {
+                            // Heart Rate Monitor Button
+                            Button(action: {
+                                showingHeartRateMonitor = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "heart.fill")
+                                        .foregroundColor(.red)
+                                    
+                                    Text("Heart Rate Monitor")
+                                        .font(.body)
+                                        .foregroundColor(.black)
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.black)
+                                }
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(8)
+                            }
+                            .padding(.top, 8)
+                        }
                     }
                     
                     if healthKitManager.isAuthorized {
@@ -130,6 +157,16 @@ struct HealthKitSettingsSection: View {
         }
         .sheet(isPresented: $isShowingAuthorizationRequest) {
             HealthKitAuthorizationView(isPresented: $isShowingAuthorizationRequest)
+        }
+        .sheet(isPresented: $showingHeartRateMonitor) {
+            NavigationView {
+                HeartRateView()
+                    .navigationTitle("Heart Rate Monitor")
+                    .navigationBarItems(trailing: Button("Close") {
+                        showingHeartRateMonitor = false
+                    })
+                    .preferredColorScheme(.dark)
+            }
         }
         .onAppear {
             healthKitManager.getAuthorizationStatus()

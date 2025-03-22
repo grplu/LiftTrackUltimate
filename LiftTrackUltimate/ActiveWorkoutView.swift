@@ -1,4 +1,5 @@
 import SwiftUI
+import HealthKit
 
 struct ActiveWorkoutView: View {
     var template: WorkoutTemplate?
@@ -26,6 +27,9 @@ struct ActiveWorkoutView: View {
                         .fontWeight(.bold)
                     
                     Spacer()
+                    
+                    WorkoutHeartRateView()
+                        .padding(.trailing, 8)
                     
                     Text(formatTime(elapsedTime))
                         .font(.system(size: 24, weight: .semibold, design: .monospaced))

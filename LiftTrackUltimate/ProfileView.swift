@@ -1,10 +1,10 @@
 import SwiftUI
+import HealthKit
 
 struct ProfileView: View {
     @ObservedObject var viewModel: ProfileViewModel
     @State private var showingEditSheet = false
     @State private var showingSettingsSheet = false
-    @State private var isHealthKitConnected = false
     
     init(viewModel: ProfileViewModel = ProfileViewModel()) {
         self.viewModel = viewModel
@@ -25,11 +25,11 @@ struct ProfileView: View {
                     // Action Buttons
                     actionButtons
                     
+                    // Heart Rate Widget
+                    HeartRateWidget()
+                    
                     // Workout Progress
                     workoutProgress
-                    
-                    // HealthKit Integration
-                    healthKitIntegration
                     
                     // Apple Watch Promo
                     watchAppPromo
@@ -43,7 +43,7 @@ struct ProfileView: View {
         .navigationBarTitleDisplayMode(.large)
         .navigationBarItems(trailing:
             Button(action: {
-                // Add settings action
+                showingSettingsSheet = true
             }) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 22))
@@ -60,7 +60,6 @@ struct ProfileView: View {
         }
         .onAppear {
             viewModel.loadStats()
-            checkHealthKitStatus()
         }
     }
     
@@ -253,107 +252,6 @@ struct ProfileView: View {
         }
     }
     
-    // MARK: - HealthKit Integration
-    private var healthKitIntegration: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                
-                Text("HealthKit")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Text(isHealthKitConnected ? "Connected" : "Not Connected")
-                    .font(.caption)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(isHealthKitConnected ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                    .foregroundColor(isHealthKitConnected ? Color.green : Color.gray)
-                    .cornerRadius(12)
-            }
-            
-            if !isHealthKitConnected {
-                Text("Connect to Apple Health to sync your workouts and track metrics like heart rate and calories burned.")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .padding(.bottom, 16)
-                
-                Button(action: {
-                    connectToHealthKit()
-                }) {
-                    HStack {
-                        Image(systemName: "plus.circle")
-                            .font(.body.weight(.semibold))
-                        
-                        Text("Connect to HealthKit")
-                            .font(.body.weight(.semibold))
-                    }
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.black)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white, lineWidth: 1)
-                    )
-                }
-            } else {
-                // Connected state UI
-                HStack(spacing: 24) {
-                    VStack(spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text("72")
-                                .font(.title3)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
-                            Text("bpm")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Text("Avg HR")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                    VStack(spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text("243")
-                                .font(.title3)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                            
-                            Text("kcal")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Text("Last Workout")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(16)
-            }
-        }
-        .padding(16)
-        .background(Color.black)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-        )
-    }
-    
     // MARK: - Apple Watch Promo
     private var watchAppPromo: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -419,21 +317,6 @@ struct ProfileView: View {
     private func weekdayLetter(for index: Int) -> String {
         let weekdays = ["M", "T", "W", "T", "F", "S", "S"]
         return weekdays[index]
-    }
-    
-    private func checkHealthKitStatus() {
-        // This would normally check if HealthKit is connected
-        viewModel.checkHealthKitStatus { isConnected in
-            self.isHealthKitConnected = isConnected
-        }
-    }
-    
-    private func connectToHealthKit() {
-        viewModel.connectToHealthKit { success in
-            if success {
-                self.isHealthKitConnected = true
-            }
-        }
     }
 }
 

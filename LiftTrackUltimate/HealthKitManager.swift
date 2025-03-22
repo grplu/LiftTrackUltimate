@@ -209,35 +209,93 @@ class HealthKitManager: ObservableObject {
     // MARK: - Heart Rate Monitoring
     
     func startHeartRateQuery(quantityTypeIdentifier: HKQuantityTypeIdentifier, completion: @escaping (Double) -> Void) {
-        let devicePredicate = HKQuery.predicateForObjects(from: [HKDevice.local()])
-        let updateHandler: (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void = {
-            query, samples, deletedObjects, queryAnchor, error in
-            
-            guard let samples = samples as? [HKQuantitySample] else { return }
-            
-            DispatchQueue.main.async {
-                for sample in samples {
-                    let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
-                    let heartRate = sample.quantity.doubleValue(for: heartRateUnit)
-                    completion(heartRate)
-                }
-            }
-        }
+        // Ensure HealthKit is available and authorized
+        guard HKHealthStore.isHealthDataAvailable() else { return }
         
         let heartRateType = HKObjectType.quantityType(forIdentifier: quantityTypeIdentifier)!
         
-        let query = HKAnchoredObjectQuery(
-            type: heartRateType,
-            predicate: devicePredicate,
-            anchor: nil,
-            limit: HKObjectQueryNoLimit,
-            resultsHandler: updateHandler
+        // Predicate to get recent heart rate samples (last 5 minutes)
+        let predicate = HKQuery.predicateForSamples(
+            withStart: Date().addingTimeInterval(-300),
+            end: Date(),
+            options: .strictStartDate
         )
         
-        query.updateHandler = updateHandler
+        // Sort descriptor to get the most recent sample
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         
-        // Execute the heart rate query
+        // Create a sample query to fetch the most recent heart rate
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: predicate,
+            limit: 1,
+            sortDescriptors: [sortDescriptor]
+        ) { (query, samples, error) in
+            guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
+                return
+            }
+            
+            let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+            let heartRate = samples.first!.quantity.doubleValue(for: heartRateUnit)
+            
+            DispatchQueue.main.async {
+                completion(heartRate)
+            }
+        }
+        
+        // Execute the query
         healthStore.execute(query)
+    }
+    
+    // New method for continuous heart rate monitoring
+    func setupContinuousHeartRateObserver(completion: @escaping (Double) -> Void) -> HKQuery? {
+        guard HKHealthStore.isHealthDataAvailable() else { return nil }
+        
+        let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        
+        // Create an observer query
+        let query = HKObserverQuery(sampleType: heartRateType, predicate: nil) { [weak self] (query, completionHandler, error) in
+            guard error == nil else {
+                print("Error in heart rate observer query: \(error!.localizedDescription)")
+                completionHandler()
+                return
+            }
+            
+            // Fetch the most recent heart rate sample
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            
+            let sampleQuery = HKSampleQuery(
+                sampleType: heartRateType,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [sortDescriptor]
+            ) { (query, samples, error) in
+                guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
+                    completionHandler()
+                    return
+                }
+                
+                let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+                let heartRate = samples.first!.quantity.doubleValue(for: heartRateUnit)
+                
+                DispatchQueue.main.async {
+                    completion(heartRate)
+                }
+                
+                completionHandler()
+            }
+            
+            self?.healthStore.execute(sampleQuery)
+        }
+        
+        // Execute the observer query
+        healthStore.execute(query)
+        return query
+    }
+    
+    // Optional: Add a method to stop a specific query if needed
+    func stopQuery(_ query: HKQuery) {
+        healthStore.stop(query)
     }
     
     // MARK: - Utility Functions
