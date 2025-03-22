@@ -1,10 +1,12 @@
 import SwiftUI
+import HealthKit
 
 struct SettingsView: View {
     @Binding var isPresented: Bool
     @EnvironmentObject var dataManager: DataManager
     @AppStorage("useMetricSystem") private var useMetricSystem = true
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage("healthKitAutoSync") private var healthKitAutoSync = false
     
     @State private var showingExportSheet = false
     @State private var showingResetConfirmation = false
@@ -45,7 +47,15 @@ struct SettingsView: View {
                         Toggle("Notifications", isOn: $notificationsEnabled)
                             .toggleStyle(CustomToggleStyle())
                             .padding(.vertical, 4)
+                        
+                        // Toggle for HealthKit Auto-Sync
+                        Toggle("Auto-sync with Apple Health", isOn: $healthKitAutoSync)
+                            .toggleStyle(CustomToggleStyle())
+                            .padding(.vertical, 4)
                     }
+                    
+                    // HealthKit Integration Section
+                    HealthKitSettingsSection()
                     
                     // Units
                     sectionCard {
@@ -337,11 +347,13 @@ struct SettingsView: View {
     - Personal information you provide (name, email, profile data)
     - Workout data and fitness tracking information
     - Device information and usage statistics
+    - Health and fitness data when you authorize Apple Health integration
 
     How We Use Your Information:
     - To provide and improve our fitness tracking services
     - To personalize your experience and workout recommendations
     - To communicate with you about updates and features
+    - To sync with Apple Health when authorized
 
     We do not sell your personal information to third parties.
 
