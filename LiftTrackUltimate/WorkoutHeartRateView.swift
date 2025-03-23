@@ -6,10 +6,10 @@ struct WorkoutHeartRateView: View {
     @State private var isAnimating = false
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // Heart Icon with Animation
             Image(systemName: "heart.fill")
-                .font(.system(size: 22))
+                .font(.system(size: 18))
                 .foregroundColor(.red)
                 .scaleEffect(isAnimating ? 1.1 : 1.0)
                 .animation(
@@ -26,19 +26,19 @@ struct WorkoutHeartRateView: View {
             // Heart Rate Value
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(viewModel.isMonitoring ? "\(Int(viewModel.heartRate))" : "--")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Text("BPM")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 8, weight: .medium))
                     .foregroundColor(.gray)
             }
         }
-        .padding(8)
+        .padding(6)
         .background(Color.black.opacity(0.5))
-        .cornerRadius(16)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
         )
     }

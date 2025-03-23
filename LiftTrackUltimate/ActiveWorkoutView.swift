@@ -16,24 +16,27 @@ struct ActiveWorkoutView: View {
     @State private var showingExerciseSelection = false
     @EnvironmentObject var dataManager: DataManager
     
-    // Conforming to View protocol by adding body
+    // Persistent timer tracking
+    @AppStorage("workoutStartTime") private var workoutStartTime: Double = 0
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Workout header
-                HStack {
-                    TextField("Workout Name", text: $workout.name)
-                        .font(.title)
-                        .fontWeight(.bold)
+                // Workout header with improved layout
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading) {
+                        TextField("Workout Name", text: $workout.name)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        
+                        Text(formatTime(elapsedTime))
+                            .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
                     
                     Spacer()
                     
                     WorkoutHeartRateView()
-                        .padding(.trailing, 8)
-                    
-                    Text(formatTime(elapsedTime))
-                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary)
                 }
                 .padding(.horizontal)
                 
@@ -133,24 +136,12 @@ struct ActiveWorkoutView: View {
             .environmentObject(dataManager)
         }
         .onAppear {
-            startTimer()
-        }
-        .onDisappear {
-            stopTimer()
+            setupTimer()
         }
         .alert("Finish Workout?", isPresented: $showFinishConfirmation) {
-            Button("Cancel", role: .cancel) {
-                // Do nothing, just dismiss the alert
-            }
+            Button("Cancel", role: .cancel) {}
             Button("Finish", role: .destructive) {
-                // Save exercise performances
-                saveExercisePerformances()
-                
-                // Proceed with finishing the workout
-                workout.duration = elapsedTime
-                workout.notes = notes
-                dataManager.saveWorkout(workout)
-                onEnd() // Call the onEnd callback
+                finishWorkoutAction()
             }
         } message: {
             Text("Are you sure you want to finish this workout?")
@@ -209,6 +200,38 @@ struct ActiveWorkoutView: View {
         self._workout = State(initialValue: initialWorkout)
     }
     
+    private func setupTimer() {
+        // If no start time exists, set it now
+        if workoutStartTime == 0 {
+            workoutStartTime = Date().timeIntervalSince1970
+        }
+        
+        // Start timer
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            elapsedTime = Date().timeIntervalSince1970 - workoutStartTime
+        }
+    }
+    
+    private func finishWorkoutAction() {
+        // Stop timer
+        timer?.invalidate()
+        timer = nil
+        
+        // Save exercise performances
+        saveExercisePerformances()
+        
+        // Proceed with finishing the workout
+        workout.duration = elapsedTime
+        workout.notes = notes
+        dataManager.saveWorkout(workout)
+        
+        // Reset start time to zero
+        workoutStartTime = 0
+        
+        // Call end callback
+        onEnd()
+    }
+    
     private func addExerciseToWorkout(_ exercise: Exercise) {
         // Try to get last performance
         let lastPerformance = dataManager.getLastPerformance(for: exercise)
@@ -247,17 +270,6 @@ struct ActiveWorkoutView: View {
     
     private func finishWorkout() {
         showFinishConfirmation = true
-    }
-    
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            elapsedTime += 1
-        }
-    }
-    
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
     }
     
     private func addSet(to exerciseIndex: Int) {

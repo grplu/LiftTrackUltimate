@@ -1,6 +1,10 @@
 import Foundation
 import SwiftUI
 
+extension Notification.Name {
+    static let workoutDataChanged = Notification.Name("workoutDataChanged")
+}
+
 class DataManager: ObservableObject {
     static let shared = DataManager()
     
@@ -61,23 +65,51 @@ class DataManager: ObservableObject {
         
         // Also save to HealthKit
         HealthKitManager.shared.saveWorkout(workout)
+        
+        print("DEBUG: saveWorkout - Saved workout \(workout.name) with date \(workout.date)")
+        print("DEBUG: saveWorkout - Total exercises: \(workout.exercises.count)")
+        
+        // Print completed sets information
+        for (index, exercise) in workout.exercises.enumerated() {
+            let completedSets = exercise.sets.filter { $0.completed }.count
+            print("DEBUG: saveWorkout - Exercise \(index + 1): \(exercise.exercise.name), Completed sets: \(completedSets)/\(exercise.sets.count)")
+        }
+        
+        // Notify observers about the workout data change
+        print("DEBUG: saveWorkout - Posting workoutDataChanged notification")
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
     }
     
     func updateWorkout(_ workout: AppWorkout) {
         if let index = workouts.firstIndex(where: { $0.id == workout.id }) {
             workouts[index] = workout
             saveWorkouts()
+            
+            print("DEBUG: updateWorkout - Updated workout \(workout.name)")
+            
+            // Notify observers about the workout data change
+            print("DEBUG: updateWorkout - Posting workoutDataChanged notification")
+            NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
         }
     }
     
     func deleteWorkout(_ workout: AppWorkout) {
         workouts.removeAll { $0.id == workout.id }
         saveWorkouts()
+        
+        print("DEBUG: deleteWorkout - Deleted workout \(workout.name)")
+        
+        // Notify observers about the workout data change
+        print("DEBUG: deleteWorkout - Posting workoutDataChanged notification")
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
     }
     
     private func saveWorkouts() {
         if let encodedData = try? JSONEncoder().encode(workouts) {
             UserDefaults.standard.set(encodedData, forKey: workoutsKey)
+            print("DEBUG: saveWorkouts - Saved \(workouts.count) workouts to UserDefaults")
+        } else {
+            print("DEBUG: saveWorkouts - Failed to encode workouts")
         }
     }
     
@@ -159,6 +191,8 @@ class DataManager: ObservableObject {
         let completedSets = workoutExercise.sets.filter { $0.completed }
         guard !completedSets.isEmpty else { return }
         
+        print("DEBUG: saveExercisePerformance - Saving performance for \(workoutExercise.exercise.name) with \(completedSets.count) completed sets")
+        
         // Extract weights and reps from sets
         let setWeights = completedSets.map { $0.weight }
         let setReps = completedSets.map { $0.reps }
@@ -205,6 +239,10 @@ class DataManager: ObservableObject {
         
         // Save to UserDefaults
         saveExercisePerformances()
+        
+        // Notify observers about the workout data change
+        print("DEBUG: saveExercisePerformance - Posting workoutDataChanged notification")
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
     }
     
     func saveExercisePerformance(_ performance: ExercisePerformance) {
@@ -229,6 +267,10 @@ class DataManager: ObservableObject {
             weight: performance.lastUsedWeight
         )
         saveProfile(updatedProfile)
+        
+        // Notify observers about the workout data change
+        print("DEBUG: saveExercisePerformance - Posting workoutDataChanged notification")
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
     }
     
     // Save all performances at once
@@ -293,6 +335,45 @@ class DataManager: ObservableObject {
     func clearExercisePerformances() {
         exercisePerformances.removeAll()
         UserDefaults.standard.removeObject(forKey: exercisePerformancesKey)
+        
+        // Notify observers about the data change
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+    }
+    
+    // MARK: - Workout Progress Data
+    
+    func getWorkoutData(for date: Date) -> (planned: Int, completed: Int) {
+        let calendar = Calendar.current
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        
+        print("DEBUG: Getting workout data for date: \(dateFormatter.string(from: date))")
+        
+        // Filter workouts for the specified date
+        let workoutsOnDate = workouts.filter { workout in
+            let isOnSameDay = calendar.isDate(workout.date, inSameDayAs: date)
+            print("DEBUG: Checking workout from \(dateFormatter.string(from: workout.date)), same day? \(isOnSameDay)")
+            return isOnSameDay
+        }
+        
+        // If there are no workouts on this date, return zeros
+        if workoutsOnDate.isEmpty {
+            print("DEBUG: No workouts found for this date")
+            return (0, 0)
+        }
+        
+        // Each workout counts as one planned unit
+        let plannedCount = workoutsOnDate.count
+        
+        // Count workouts with completed sets as completed
+        let completedCount = workoutsOnDate.filter { workout in
+            let hasCompletedSets = workout.exercises.flatMap { $0.sets }.contains { $0.completed }
+            print("DEBUG: Workout \(workout.name) has completed sets? \(hasCompletedSets)")
+            return hasCompletedSets
+        }.count
+        
+        print("DEBUG: Found \(plannedCount) planned and \(completedCount) completed workouts")
+        return (plannedCount, completedCount)
     }
     
     // MARK: - Sample Data

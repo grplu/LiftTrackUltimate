@@ -59,6 +59,12 @@ struct ProfileView: View {
             SettingsView(isPresented: $showingSettingsSheet)
         }
         .onAppear {
+            print("DEBUG: ProfileView appeared")
+            viewModel.loadStats()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .workoutDataChanged)) { _ in
+            // Refresh data when workout data changes
+            print("DEBUG: Received workoutDataChanged notification")
             viewModel.loadStats()
         }
     }
@@ -216,31 +222,64 @@ struct ProfileView: View {
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-            
-            VStack(spacing: 16) {
-                // Weekly progress indicators
-                HStack(spacing: 4) {
-                    ForEach(0..<7, id: \.self) { index in
-                        let progress = viewModel.weeklyProgress[safe: index] ?? 0.0
-                        
-                        VStack(spacing: 4) {
-                            Text(weekdayLetter(for: index))
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                            
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(progress > 0 ? Color.white : Color.gray.opacity(0.3))
-                                .frame(height: 40 * max(0.1, progress))
-                            
-                            Text("\(Int(progress * 100))%")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        }
-                        .frame(maxWidth: .infinity)
+                .onAppear {
+                    // Force refresh weekly progress data
+                    viewModel.loadWeeklyProgress()
+                    
+                    // Debug prints
+                    print("DEBUG: Weekly progress data loaded")
+                    for (index, progress) in viewModel.weeklyProgress.enumerated() {
+                        let weekday = getWeekdayName(for: index)
+                        let dateString = dateFormatter.string(from: progress.date)
+                        print("DEBUG: \(weekday) (\(dateString)) - Planned: \(progress.plannedWorkouts), Completed: \(progress.completedWorkouts)")
                     }
                 }
-                .frame(height: 100)
-                .padding(.top, 8)
+            
+            VStack(spacing: 12) {
+                // Header: This Week
+                Text("This Week")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 4)
+                
+                // Days of the week in horizontal layout
+                HStack(spacing: 12) {
+                    ForEach(0..<viewModel.weeklyProgress.count, id: \.self) { index in
+                        let progress = viewModel.weeklyProgress[index]
+                        let hasWorkout = progress.completedWorkouts > 0
+                        let isToday = Calendar.current.isDateInToday(progress.date)
+                        
+                        VStack(spacing: 8) {
+                            // Abbreviated day name
+                            Text(getWeekdayAbbreviation(for: index))
+                                .font(.footnote)
+                                .foregroundColor(.white)
+                            
+                            // Checkmark or empty circle
+                            ZStack {
+                                Circle()
+                                    .fill(hasWorkout ? Color.green : Color.gray.opacity(0.2))
+                                    .frame(width: 36, height: 36)
+                                    .onAppear {
+                                        // Debug print for this specific circle
+                                        print("DEBUG: Circle for \(getWeekdayAbbreviation(for: index)) - hasWorkout: \(hasWorkout), completedWorkouts: \(progress.completedWorkouts)")
+                                    }
+                                
+                                if hasWorkout {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 14, weight: .bold))
+                                }
+                            }
+                            .overlay(
+                                Circle()
+                                    .stroke(isToday ? Color.white : Color.clear, lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
             }
             .padding(16)
             .background(Color.black)
@@ -249,8 +288,30 @@ struct ProfileView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.gray.opacity(0.3), lineWidth: 1)
             )
+            .onAppear {
+                // Force refresh when this view appears
+                viewModel.loadWeeklyProgress()
+            }
         }
     }
+    
+    // Helper function for abbreviated weekday names
+    private func getWeekdayAbbreviation(for index: Int) -> String {
+        let weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        return weekdays[index]
+    }
+    
+    private func getWeekdayName(for index: Int) -> String {
+        let weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        return weekdays[index]
+    }
+    
+    // Debug date formatter
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }()
     
     // MARK: - Apple Watch Promo
     private var watchAppPromo: some View {
@@ -325,6 +386,17 @@ extension Collection {
     /// Returns the element at the specified index if it exists, otherwise nil.
     subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
+    }
+}
+
+// MARK: - View Extension for Conditional Modifiers
+extension View {
+    @ViewBuilder func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }
 

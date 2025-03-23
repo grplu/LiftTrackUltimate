@@ -4,97 +4,79 @@ struct WorkoutView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var isWorkoutActive = false
-    @State private var showingTemplateSelection = false
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                if isWorkoutActive {
-                    ActiveWorkoutView(
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Workout")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .padding()
+                    Spacer()
+                }
+                
+                // Templates List
+                ScrollView {
+                    VStack(spacing: 15) {
+                        ForEach(dataManager.templates) { template in
+                            Button(action: {
+                                selectedTemplate = template
+                                isWorkoutActive = true
+                            }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(template.name)
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                        
+                                        Text("\(template.exercises.count) Exercises • \(estimatedDuration(for: template)) mins")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding()
+                                    
+                                    Spacer()
+                                }
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(uiColor: .systemBackground))
+                                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                }
+                
+                // Navigation to ActiveWorkoutView when a template is selected
+                NavigationLink(
+                    destination: ActiveWorkoutView(
                         template: selectedTemplate,
                         onEnd: {
                             isWorkoutActive = false
                             selectedTemplate = nil
                         }
-                    )
-                    .environmentObject(dataManager)
-                } else {
-                    // Start Workout Options
-                    VStack(spacing: 30) {
-                        Image(systemName: "figure.run")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 80, height: 80)
-                            .foregroundColor(.blue)
-                        
-                        Text("Ready to get started?")
-                            .font(.title)
-                            .fontWeight(.bold)
-                        
-                        Button(action: {
-                            isWorkoutActive = true
-                        }) {
-                            Text("Start Empty Workout")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                        }
-                        
-                        Button(action: {
-                            showingTemplateSelection = true
-                        }) {
-                            Text("Use Template")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(10)
-                        }
-                    }
-                    .padding()
-                    
-                    Spacer()
+                    ),
+                    isActive: $isWorkoutActive
+                ) {
+                    EmptyView()
                 }
             }
-            .navigationTitle("Workout")
-            .sheet(isPresented: $showingTemplateSelection) {
-                TemplateSelectionView { template in
-                    self.selectedTemplate = template
-                    self.isWorkoutActive = true
-                    self.showingTemplateSelection = false
-                }
-                .environmentObject(dataManager)
-            }
+            .navigationBarHidden(true)
         }
     }
-}
-
-struct TemplateSelectionView: View {
-    @EnvironmentObject var dataManager: DataManager
-    var onSelect: (WorkoutTemplate) -> Void
     
-    var body: some View {
-        NavigationView {
-            List(dataManager.templates) { template in
-                Button(action: {
-                    onSelect(template)
-                }) {
-                    VStack(alignment: .leading) {
-                        Text(template.name)
-                            .font(.headline)
-                        
-                        Text("\(template.exercises.count) exercises")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 5)
-                }
-            }
-            .navigationTitle("Select Template")
-        }
+    // Helper method to estimate workout duration
+    private func estimatedDuration(for template: WorkoutTemplate) -> Int {
+        // Assuming ~10 minutes per exercise as a rough estimate
+        return template.exercises.count * 10
     }
 }
