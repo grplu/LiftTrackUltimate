@@ -10,7 +10,7 @@ struct ActiveWorkoutView: View {
     @State private var timer: Timer? = nil
     @State private var isShowingNotes = false
     @State private var notes = ""
-    @State private var showFinishConfirmation = false
+    @State private var showingFinishPrompt = false
     @State private var addExerciseButtonScale: CGFloat = 1.0
     @State private var finishWorkoutButtonScale: CGFloat = 1.0
     @State private var showingExerciseSelection = false
@@ -20,90 +20,106 @@ struct ActiveWorkoutView: View {
     @AppStorage("workoutStartTime") private var workoutStartTime: Double = 0
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Workout header with improved layout
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading) {
-                        TextField("Workout Name", text: $workout.name)
-                            .font(.title3)
-                            .fontWeight(.bold)
+        ZStack {
+            // Main content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Workout header with improved layout
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading) {
+                            TextField("Workout Name", text: $workout.name)
+                                .font(.title3)
+                                .fontWeight(.bold)
+                            
+                            Text(formatTime(elapsedTime))
+                                .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
                         
-                        Text(formatTime(elapsedTime))
-                            .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.secondary)
+                        Spacer()
+                        
+                        WorkoutHeartRateView()
                     }
-                    
-                    Spacer()
-                    
-                    WorkoutHeartRateView()
-                }
-                .padding(.horizontal)
-                
-                // Exercise cards
-                ForEach($workout.exercises.indices, id: \.self) { exerciseIndex in
-                    WorkoutExerciseCard(
-                        exercise: $workout.exercises[exerciseIndex],
-                        onAddSet: {
-                            addSet(to: exerciseIndex)
-                        }
-                    )
                     .padding(.horizontal)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(12)
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                }
-                
-                // Add exercise button
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                        addExerciseButtonScale = 1.2
+                    
+                    // Exercise cards
+                    ForEach($workout.exercises.indices, id: \.self) { exerciseIndex in
+                        WorkoutExerciseCard(
+                            exercise: $workout.exercises[exerciseIndex],
+                            onAddSet: {
+                                addSet(to: exerciseIndex)
+                            }
+                        )
+                        .padding(.horizontal)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    
+                    // Add exercise button
+                    Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            addExerciseButtonScale = 1.0
-                            showingExerciseSelection = true
+                            addExerciseButtonScale = 1.2
                         }
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Add Exercise")
-                            .fontWeight(.semibold)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(10)
-                    .scaleEffect(addExerciseButtonScale)
-                }
-                .padding(.horizontal)
-                
-                // Finish workout button
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                        finishWorkoutButtonScale = 1.2
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            finishWorkoutButtonScale = 1.0
-                            finishWorkout()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                                addExerciseButtonScale = 1.0
+                                showingExerciseSelection = true
+                            }
                         }
-                    }
-                }) {
-                    Text("Finish Workout")
-                        .fontWeight(.semibold)
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add Exercise")
+                                .fontWeight(.semibold)
+                        }
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.green)
-                        .foregroundColor(.white)
+                        .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
                         .cornerRadius(10)
-                        .scaleEffect(finishWorkoutButtonScale)
+                        .scaleEffect(addExerciseButtonScale)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Finish workout button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            finishWorkoutButtonScale = 1.2
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                                finishWorkoutButtonScale = 1.0
+                                showFinishWorkout()
+                            }
+                        }
+                    }) {
+                        Text("Finish Workout")
+                            .fontWeight(.semibold)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                            .scaleEffect(finishWorkoutButtonScale)
+                    }
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
+                .padding(.vertical)
             }
-            .padding(.vertical)
+            
+            // Custom finish workout prompt overlay
+            if showingFinishPrompt {
+                CustomFinishWorkoutView(
+                    workout: workout,
+                    onCancel: {
+                        showingFinishPrompt = false
+                    },
+                    onFinish: {
+                        finishWorkoutAction()
+                    }
+                )
+            }
         }
         .navigationBarTitle("Workout", displayMode: .inline)
         .toolbar {
@@ -124,6 +140,7 @@ struct ActiveWorkoutView: View {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {
                                 isShowingNotes = false
+                                workout.notes = notes
                             }
                         }
                     }
@@ -137,14 +154,6 @@ struct ActiveWorkoutView: View {
         }
         .onAppear {
             setupTimer()
-        }
-        .alert("Finish Workout?", isPresented: $showFinishConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Finish", role: .destructive) {
-                finishWorkoutAction()
-            }
-        } message: {
-            Text("Are you sure you want to finish this workout?")
         }
     }
     
@@ -213,6 +222,9 @@ struct ActiveWorkoutView: View {
     }
     
     private func finishWorkoutAction() {
+        // Mark all sets as completed
+        markAllSetsAsCompleted()
+        
         // Stop timer
         timer?.invalidate()
         timer = nil
@@ -230,6 +242,14 @@ struct ActiveWorkoutView: View {
         
         // Call end callback
         onEnd()
+    }
+    
+    private func markAllSetsAsCompleted() {
+        for i in 0..<workout.exercises.count {
+            for j in 0..<workout.exercises[i].sets.count {
+                workout.exercises[i].sets[j].completed = true
+            }
+        }
     }
     
     private func addExerciseToWorkout(_ exercise: Exercise) {
@@ -268,8 +288,8 @@ struct ActiveWorkoutView: View {
         }
     }
     
-    private func finishWorkout() {
-        showFinishConfirmation = true
+    private func showFinishWorkout() {
+        showingFinishPrompt = true
     }
     
     private func addSet(to exerciseIndex: Int) {
