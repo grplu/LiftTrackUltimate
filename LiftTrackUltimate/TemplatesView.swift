@@ -13,142 +13,165 @@ struct TemplatesView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background gradient
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.black,
-                        Color(hex: "1a1a1a"),
-                        Color(hex: "101010")
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 0) {
-                    // Header with search
-                    HStack(spacing: 16) {
-                        if isSearching {
-                            // Back button when searching
-                            Button(action: {
-                                withAnimation {
-                                    isSearching = false
-                                    searchText = ""
-                                }
-                            }) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                        } else {
-                            // Title when not searching
-                            Text(selectedTab == .myTemplates ? "Workout Templates" : "Template Store")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        
-                        Spacer()
-                        
-                        // Search button
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                // Header with search
+                HStack(spacing: 16) {
+                    if isSearching {
+                        // Back button when searching
                         Button(action: {
                             withAnimation {
-                                isSearching.toggle()
+                                isSearching = false
+                                searchText = ""
                             }
                         }) {
-                            Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
-                                .font(.system(size: 20))
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 20, weight: .medium))
                                 .foregroundColor(.white)
                         }
+                    } else {
+                        // Title when not searching
+                        Text(selectedTab == .myTemplates ? "Workout Templates" : "Template Store")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Spacer()
+                    
+                    // Search button
+                    Button(action: {
+                        withAnimation {
+                            isSearching.toggle()
+                        }
+                    }) {
+                        Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 38, height: 38)
+                            .background(
+                                Circle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .opacity(isSearching ? 0 : 1)
+                            )
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, isSearching ? 8 : 16)
+                
+                // Search field (when searching)
+                if isSearching {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .padding(.leading, 8)
                         
-                        if selectedTab == .myTemplates && !isSearching {
-                            // Add template button (only in My Templates)
+                        TextField("Search templates...", text: $searchText)
+                            .foregroundColor(.white)
+                            .padding(.vertical, 12)
+                        
+                        if !searchText.isEmpty {
                             Button(action: {
-                                showingAddTemplate = true
+                                searchText = ""
                             }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .padding(.trailing, 8)
                             }
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 12)
-                    .padding(.bottom, isSearching ? 8 : 16)
-                    
-                    // Search field (when searching)
-                    if isSearching {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.gray)
-                            
-                            TextField("Search templates...", text: $searchText)
-                                .foregroundColor(.white)
-                            
-                            if !searchText.isEmpty {
-                                Button(action: {
-                                    searchText = ""
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .padding(10)
-                        .background(Color(.systemGray6).opacity(0.3))
-                        .cornerRadius(10)
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
-                    }
-                    
-                    // Tab switcher
-                    HStack(spacing: 0) {
-                        TabButton(
-                            title: "My Templates",
-                            isSelected: selectedTab == .myTemplates,
-                            action: { withAnimation { selectedTab = .myTemplates } }
-                        )
-                        
-                        TabButton(
-                            title: "Discover",
-                            isSelected: selectedTab == .discover,
-                            action: { withAnimation { selectedTab = .discover } }
-                        )
-                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.systemGray6).opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    )
                     .padding(.horizontal)
                     .padding(.bottom, 16)
+                }
+                
+                // Tab switcher
+                HStack(spacing: 0) {
+                    TabButton(
+                        title: "My Templates",
+                        isSelected: selectedTab == .myTemplates,
+                        action: { withAnimation { selectedTab = .myTemplates } }
+                    )
                     
-                    // Templates content
-                    ScrollView {
-                        if selectedTab == .myTemplates {
-                            // My Templates
-                            myTemplatesSection
-                        } else {
-                            // Discover section
-                            discoverSection
-                        }
+                    TabButton(
+                        title: "Discover",
+                        isSelected: selectedTab == .discover,
+                        action: { withAnimation { selectedTab = .discover } }
+                    )
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 16)
+                
+                // Templates content
+                ScrollView {
+                    if selectedTab == .myTemplates {
+                        // My Templates
+                        myTemplatesSection
+                    } else {
+                        // Discover section
+                        discoverSection
                     }
-                    .refreshable {
-                        // Pull to refresh - reload templates
-                        animateCards = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation {
-                                animateCards = true
-                            }
+                }
+                .refreshable {
+                    // Pull to refresh - reload templates
+                    animateCards = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        withAnimation {
+                            animateCards = true
                         }
                     }
                 }
             }
-            .sheet(isPresented: $showingAddTemplate) {
-                EnhancedTemplateCreationView(onSave: { newTemplate in
-                    // Save the new template to the data manager
-                    dataManager.saveTemplate(newTemplate)
-                })
-                .environmentObject(dataManager)
-                .environment(\.colorScheme, .dark)
+            
+            // Floating Add Button (only in My Templates tab)
+            if selectedTab == .myTemplates && !isSearching {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            showingAddTemplate = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 56, height: 56)
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
+                                )
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 80) // Extra padding for tab bar
+                    }
+                }
             }
         }
+        .sheet(isPresented: $showingAddTemplate) {
+            EnhancedTemplateCreationView(onSave: { newTemplate in
+                // Save the new template to the data manager
+                dataManager.saveTemplate(newTemplate)
+            })
+            .environmentObject(dataManager)
+            .environment(\.colorScheme, .dark)
+        }
+        .navigationBarHidden(true)
         .onAppear {
             // Animate cards when view appears
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -191,11 +214,12 @@ struct TemplatesView: View {
                     // Display templates in a grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                         ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
-                            TemplateCard(
+                            EnhancedTemplateCard(
                                 template: template,
                                 index: index,
                                 appear: animateCards
                             )
+                            .id(template.id)
                         }
                     }
                     .padding(.horizontal)
@@ -219,7 +243,7 @@ struct TemplatesView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
                         ForEach(0..<5) { i in
-                            FeaturedTemplateCard(
+                            EnhancedFeaturedCard(
                                 name: featuredTemplates[i].name,
                                 author: featuredTemplates[i].author,
                                 exercises: featuredTemplates[i].exercises,
@@ -244,7 +268,7 @@ struct TemplatesView: View {
                     .padding(.horizontal)
                 
                 ForEach(0..<6) { i in
-                    PopularTemplateRow(
+                    EnhancedPopularRow(
                         name: popularTemplates[i].name,
                         author: popularTemplates[i].author,
                         exercises: popularTemplates[i].exercises,
@@ -268,7 +292,7 @@ struct TemplatesView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(categories, id: \.self) { category in
-                            CategoryPill(name: category)
+                            EnhancedCategoryPill(name: category)
                         }
                     }
                     .padding(.horizontal)
@@ -283,10 +307,16 @@ struct TemplatesView: View {
     // MARK: - Empty Templates View
     private var emptyTemplatesView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "rectangle.stack.badge.plus")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
-                .padding(.bottom, 16)
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 120, height: 120)
+                
+                Image(systemName: "rectangle.stack.badge.plus")
+                    .font(.system(size: 50))
+                    .foregroundColor(.blue)
+            }
+            .padding(.bottom, 16)
             
             Text("No Templates Yet")
                 .font(.title2)
@@ -302,13 +332,27 @@ struct TemplatesView: View {
             Button(action: {
                 showingAddTemplate = true
             }) {
-                Text("Create Template")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .cornerRadius(10)
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                    
+                    Text("Create Template")
+                        .font(.headline)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
             }
             .padding(.top, 16)
             
@@ -329,9 +373,15 @@ struct TemplatesView: View {
                     .font(.headline)
                     .foregroundColor(.blue)
                     .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.blue.opacity(0.15))
-                    .cornerRadius(10)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.blue.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                            )
+                    )
             }
             .padding(.top, 8)
         }
@@ -389,67 +439,86 @@ struct TabButton: View {
     }
 }
 
-struct TemplateCard: View {
+struct EnhancedTemplateCard: View {
     var template: WorkoutTemplate
     var index: Int
     var appear: Bool
     
     var body: some View {
-        NavigationLink(destination: Text("Template Detail View")) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Template name
-                Text(template.name)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+        NavigationLink(destination: TemplateDetailView(template: template)) {
+            VStack(alignment: .leading, spacing: 16) {
+                // Icon and title row
+                HStack(alignment: .center, spacing: 12) {
+                    // Badge icon with gradient background
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.5)]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Template name
+                    Text(template.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
                 
                 Spacer()
                 
-                // Exercise count
-                HStack {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.blue)
+                // Stats row
+                VStack(spacing: 12) {
+                    // Exercise count
+                    HStack {
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                        
+                        Text("\(template.exercises.count) exercises")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                        
+                        Spacer()
+                    }
                     
-                    Text("\(template.exercises.count) exercises")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                
-                // Estimated time
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.orange)
-                    
-                    Text("\(template.exercises.count * 10) mins")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+                    // Estimated time with divider
+                    HStack {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                        
+                        Text("\(template.exercises.count * 10) mins")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                        
+                        Spacer()
+                    }
                 }
             }
             .padding(16)
             .frame(height: 160)
             .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(.systemGray6).opacity(0.3),
-                        Color(.systemGray6).opacity(0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .cornerRadius(16)
-            .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .fill(Color(.systemGray6).opacity(0.15))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
             )
             .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
             .opacity(appear ? 1 : 0)
             .offset(y: appear ? 0 : 20)
             .animation(
-                .spring(response: 0.6, dampingFraction: 0.8)
+                .spring(response: 0.5, dampingFraction: 0.8)
                 .delay(0.1 + Double(index) * 0.05),
                 value: appear
             )
@@ -457,7 +526,7 @@ struct TemplateCard: View {
     }
 }
 
-struct FeaturedTemplateCard: View {
+struct EnhancedFeaturedCard: View {
     var name: String
     var author: String
     var exercises: Int
@@ -473,12 +542,11 @@ struct FeaturedTemplateCard: View {
                 // Title
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                     
                     Text("by \(author)")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
                 
@@ -491,8 +559,7 @@ struct FeaturedTemplateCard: View {
                         .foregroundColor(.yellow)
                     
                     Text(String(format: "%.1f", rating))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
                 }
             }
@@ -508,7 +575,7 @@ struct FeaturedTemplateCard: View {
                         .foregroundColor(color)
                     
                     Text("\(exercises) exercises")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
                 
@@ -517,44 +584,45 @@ struct FeaturedTemplateCard: View {
                 // Download button
                 Button(action: {}) {
                     Text("Get")
-                        .font(.caption)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(color)
-                        .cornerRadius(12)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [color, color.opacity(0.8)]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
                 }
             }
         }
         .padding(16)
         .frame(width: 240, height: 140)
         .background(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(.systemGray6).opacity(0.3),
-                    Color(.systemGray6).opacity(0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(16)
-        .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(color.opacity(0.3), lineWidth: 1)
+                .fill(Color(.systemGray6).opacity(0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
         )
+        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 20)
         .animation(
-            .spring(response: 0.6, dampingFraction: 0.8)
+            .spring(response: 0.5, dampingFraction: 0.8)
             .delay(0.2 + Double(index) * 0.1),
             value: appear
         )
     }
 }
 
-struct PopularTemplateRow: View {
+struct EnhancedPopularRow: View {
     var name: String
     var author: String
     var exercises: Int
@@ -569,8 +637,14 @@ struct PopularTemplateRow: View {
                 // Rank number with background
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.2))
-                        .frame(width: 36, height: 36)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.3)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
                     
                     Text("\(index + 1)")
                         .font(.system(size: 16, weight: .bold))
@@ -580,11 +654,11 @@ struct PopularTemplateRow: View {
                 // Template info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                     
                     Text("by \(author) • \(exercises) exercises")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
                 
@@ -595,7 +669,7 @@ struct PopularTemplateRow: View {
                     // Rating
                     HStack(spacing: 4) {
                         Text(String(format: "%.1f", rating))
-                            .font(.subheadline)
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                         
                         Image(systemName: "star.fill")
@@ -605,37 +679,49 @@ struct PopularTemplateRow: View {
                     
                     // Downloads
                     Text("\(downloads) downloads")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
             }
             .padding(12)
-            .background(Color(.systemGray6).opacity(0.2))
-            .cornerRadius(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(.systemGray6).opacity(0.15))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 20)
         .animation(
-            .spring(response: 0.6, dampingFraction: 0.8)
+            .spring(response: 0.5, dampingFraction: 0.8)
             .delay(0.3 + Double(index) * 0.05),
             value: appear
         )
     }
 }
 
-struct CategoryPill: View {
+struct EnhancedCategoryPill: View {
     var name: String
     
     var body: some View {
         Text(name)
-            .font(.caption)
-            .fontWeight(.medium)
+            .font(.system(size: 14, weight: .medium))
             .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color.blue.opacity(0.2))
-            .cornerRadius(20)
+            .background(
+                Capsule()
+                    .fill(Color.blue.opacity(0.15))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+            )
     }
 }
 

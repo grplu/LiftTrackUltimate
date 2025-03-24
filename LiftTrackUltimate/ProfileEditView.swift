@@ -1,345 +1,234 @@
 import SwiftUI
-import PhotosUI
 
 struct ProfileEditView: View {
+    @Environment(\.dismiss) private var dismiss
     @Binding var profile: UserProfile
+    @State private var tempName: String
+    @State private var tempFitnessGoal: String
+    @State private var tempHeight: String
+    @State private var tempWeight: String
+    @State private var tempBirthDate: Date
+    @State private var showingImagePicker = false
+    @State private var inputImage: UIImage?
+    @State private var showingGoalPicker = false
+    @State private var showingDatePicker = false
+    
+    // Animation states
+    @State private var animateFields = false
+    @State private var animateButton = false
+    
     var onSave: () -> Void
-    @Environment(\.presentationMode) var presentationMode
-    
-    // State for optional values
-    @State private var heightString: String = ""
-    @State private var weightString: String = ""
-    @State private var birthDate: Date = Date()
-    @State private var showingBirthDatePicker: Bool = false
-    @State private var showingGoalPicker: Bool = false
-    
-    // Image picker state
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var selectedImageData: Data?
-    @State private var profileImage: UIImage?
     
     // Available fitness goals
-    let fitnessGoals = [
-        "Strength Training",
-        "Muscle Building",
-        "Weight Loss",
-        "Endurance",
-        "Athletic Performance",
-        "General Fitness"
+    private let fitnessGoals = [
+        "Build Muscle", "Lose Weight", "Improve Strength",
+        "Increase Endurance", "General Fitness", "Sport Performance"
     ]
     
     init(profile: Binding<UserProfile>, onSave: @escaping () -> Void) {
         self._profile = profile
         self.onSave = onSave
         
-        // Initialize height string if available
-        if let height = profile.wrappedValue.height {
-            self._heightString = State(initialValue: String(format: "%.1f", height))
-        }
-        
-        // Initialize weight string if available
-        if let weight = profile.wrappedValue.weight {
-            self._weightString = State(initialValue: String(format: "%.1f", weight))
-        }
-        
-        // Initialize birth date if available, otherwise use a default date
-        if let date = profile.wrappedValue.birthDate {
-            self._birthDate = State(initialValue: date)
-        } else {
-            // Default to 30 years ago
-            let calendar = Calendar.current
-            if let date = calendar.date(byAdding: .year, value: -30, to: Date()) {
-                self._birthDate = State(initialValue: date)
-            }
-        }
-        
-        // Load existing profile image if available
-        if let profilePicture = profile.wrappedValue.profilePicture,
-           let uiImage = UIImage(data: profilePicture) {
-            self._profileImage = State(initialValue: uiImage)
-        }
+        // Initialize temporary state variables
+        _tempName = State(initialValue: profile.wrappedValue.name)
+        _tempFitnessGoal = State(initialValue: profile.wrappedValue.fitnessGoal)
+        _tempHeight = State(initialValue: profile.wrappedValue.height != nil ? "\(profile.wrappedValue.height!)" : "")
+        _tempWeight = State(initialValue: profile.wrappedValue.weight != nil ? "\(profile.wrappedValue.weight!)" : "")
+        _tempBirthDate = State(initialValue: profile.wrappedValue.birthDate ?? Date())
     }
     
     var body: some View {
         ZStack {
-            Color.black.edgesIgnoringSafeArea(.all)
+            // Background with subtle gradient
+            LinearGradient(
+                gradient: Gradient(colors: [Color.black, Color(red: 0.1, green: 0.1, blue: 0.15)]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .edgesIgnoringSafeArea(.all)
             
             ScrollView {
-                VStack(spacing: 24) {
-                    // Profile Picture Section
-                    profileImageSection
+                VStack(spacing: 28) {
+                    // Profile photo
+                    profilePhotoSection
+                        .padding(.top, 20)
                     
-                    // Personal Information
-                    sectionCard(title: "Personal Information") {
-                        VStack(spacing: 16) {
-                            // Name field
-                            inputField(title: "Name",
-                                    icon: "person.fill",
-                                    placeholder: "Enter your name",
-                                    text: $profile.name)
+                    // Personal Information section
+                    sectionHeader("Personal Information")
+                        .opacity(animateFields ? 1 : 0)
+                        .offset(y: animateFields ? 0 : 20)
+                    
+                    // Name field
+                    inputField(title: "Name", iconName: "person.fill", placeholder: "Enter your name") {
+                        TextField("", text: $tempName)
+                            .foregroundColor(.white)
+                    }
+                    .opacity(animateFields ? 1 : 0)
+                    .offset(y: animateFields ? 0 : 15)
+                    
+                    // Fitness Goal picker
+                    inputField(title: "Fitness Goal", iconName: "figure.strengthtraining.traditional", placeholder: tempFitnessGoal) {
+                        HStack {
+                            Text(tempFitnessGoal)
+                                .foregroundColor(.white)
                             
-                            // Fitness Goal picker
-                            Button(action: {
-                                withAnimation {
-                                    showingGoalPicker = true
-                                }
-                            }) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Fitness Goal")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.gray)
-                                    
-                                    HStack {
-                                        Text(profile.fitnessGoal)
-                                            .foregroundColor(.white)
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.down")
-                                            .foregroundColor(.gray)
-                                            .font(.caption)
-                                    }
-                                    .padding()
-                                    .background(Color.black)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                    )
-                                }
+                            Spacer()
+                            
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 14))
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation {
+                                showingGoalPicker = true
                             }
                         }
                     }
+                    .opacity(animateFields ? 1 : 0)
+                    .offset(y: animateFields ? 0 : 15)
                     
-                    // Physical Information
-                    sectionCard(title: "Physical Information") {
-                        VStack(spacing: 16) {
-                            // Height field
-                            inputField(title: "Height (cm)",
-                                    icon: "ruler",
-                                    placeholder: "Enter your height",
-                                    text: $heightString,
-                                    keyboardType: .decimalPad)
+                    // Physical Information section
+                    sectionHeader("Physical Information")
+                        .padding(.top, 10)
+                        .opacity(animateFields ? 1 : 0)
+                        .offset(y: animateFields ? 0 : 15)
+                    
+                    // Height field
+                    inputField(title: "Height (cm)", iconName: "ruler", placeholder: "Enter your height") {
+                        TextField("", text: $tempHeight)
+                            .foregroundColor(.white)
+                            .keyboardType(.decimalPad)
+                    }
+                    .opacity(animateFields ? 1 : 0)
+                    .offset(y: animateFields ? 0 : 15)
+                    
+                    // Weight field
+                    inputField(title: "Weight (kg)", iconName: "scalemass", placeholder: "Enter your weight") {
+                        TextField("", text: $tempWeight)
+                            .foregroundColor(.white)
+                            .keyboardType(.decimalPad)
+                    }
+                    .opacity(animateFields ? 1 : 0)
+                    .offset(y: animateFields ? 0 : 15)
+                    
+                    // Birth Date field
+                    inputField(title: "Birth Date", iconName: "calendar", placeholder: formatDate(tempBirthDate)) {
+                        HStack {
+                            Text(formatDate(tempBirthDate))
+                                .foregroundColor(.white)
                             
-                            // Weight field
-                            inputField(title: "Weight (kg)",
-                                    icon: "scalemass",
-                                    placeholder: "Enter your weight",
-                                    text: $weightString,
-                                    keyboardType: .decimalPad)
+                            Spacer()
                             
-                            // Birth Date field
-                            Button(action: {
-                                withAnimation {
-                                    showingBirthDatePicker = true
-                                }
-                            }) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Birth Date")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.gray)
-                                    
-                                    HStack {
-                                        Image(systemName: "calendar")
-                                            .foregroundColor(.gray)
-                                            .frame(width: 24)
-                                        
-                                        Text(formatDate(birthDate))
-                                            .foregroundColor(.white)
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.down")
-                                            .foregroundColor(.gray)
-                                            .font(.caption)
-                                    }
-                                    .padding()
-                                    .background(Color.black)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                    )
-                                }
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 14))
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation {
+                                showingDatePicker = true
                             }
                         }
                     }
+                    .opacity(animateFields ? 1 : 0)
+                    .offset(y: animateFields ? 0 : 15)
                     
                     // Save button
                     Button(action: saveProfile) {
                         HStack {
                             Image(systemName: "checkmark")
-                                .font(.body.weight(.semibold))
+                                .font(.system(size: 18, weight: .semibold))
                             
                             Text("Save Profile")
-                                .font(.body.weight(.semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
-                        .padding(.vertical, 16)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white)
                         .foregroundColor(.black)
-                        .cornerRadius(10)
+                        .frame(height: 60)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.white)
+                        )
+                        .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
                     }
                     .padding(.top, 10)
+                    .padding(.bottom, 40)
+                    .scaleEffect(animateButton ? 1 : 0.9)
+                    .opacity(animateButton ? 1 : 0)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 50)
+                .padding(.horizontal, 20)
+            }
+            
+            // Goal picker overlay
+            if showingGoalPicker {
+                goalPickerOverlay
+            }
+            
+            // Date picker overlay
+            if showingDatePicker {
+                datePickerOverlay
             }
         }
-        .navigationTitle("Edit Profile")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(
-            leading: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    dismiss()
+                }) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .medium))
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(Color.gray.opacity(0.2))
+                        )
+                }
             }
-            .foregroundColor(.white),
             
-            trailing: Button("Save") {
-                saveProfile()
-            }
-            .fontWeight(.bold)
-            .foregroundColor(.white)
-        )
-        .sheet(isPresented: $showingBirthDatePicker) {
-            VStack {
-                HStack {
-                    Button("Cancel") {
-                        showingBirthDatePicker = false
-                    }
-                    .padding()
-                    
-                    Spacer()
-                    
-                    Button("Done") {
-                        showingBirthDatePicker = false
-                    }
-                    .fontWeight(.bold)
-                    .padding()
-                }
-                .background(Color.black)
-                .foregroundColor(.white)
-                
-                DatePicker(
-                    "",
-                    selection: $birthDate,
-                    in: ...Date(),
-                    displayedComponents: .date
-                )
-                .datePickerStyle(GraphicalDatePickerStyle())
-                .padding()
-                .colorScheme(.light) // Force light mode for the date picker
-                
-                Spacer()
-            }
-            .background(Color.white)
-        }
-        .sheet(isPresented: $showingGoalPicker) {
-            NavigationView {
-                List {
-                    ForEach(fitnessGoals, id: \.self) { goal in
-                        Button {
-                            profile.fitnessGoal = goal
-                            showingGoalPicker = false
-                        } label: {
-                            HStack {
-                                Text(goal)
-                                    .foregroundColor(.white)
-                                
-                                Spacer()
-                                
-                                if profile.fitnessGoal == goal {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.white)
-                                }
-                            }
-                        }
-                    }
-                }
-                .navigationTitle("Fitness Goal")
-                .navigationBarItems(trailing: Button("Done") {
-                    showingGoalPicker = false
-                }
-                .foregroundColor(.white))
-                .background(Color.black)
-            }
-            .preferredColorScheme(.dark)
-        }
-        .onChange(of: selectedItem) { newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                    selectedImageData = data
-                    if let uiImage = UIImage(data: data) {
-                        profileImage = uiImage
-                    }
-                }
-            }
-        }
-    }
-    
-    // MARK: - Section Card
-    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            content()
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Input Field
-    private func inputField(title: String, icon: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType = .default) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.gray)
-            
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .foregroundColor(.gray)
-                    .frame(width: 24)
-                
-                TextField(placeholder, text: text)
+            ToolbarItem(placement: .principal) {
+                Text("Edit Profile")
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
-                    .keyboardType(keyboardType)
-                    .accentColor(.white)
             }
-            .padding()
-            .background(Color.black)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-            )
+        }
+        .sheet(isPresented: $showingImagePicker, onDismiss: loadImage) {
+            ImagePicker(image: $inputImage)
+        }
+        .onAppear {
+            startAnimations()
         }
     }
     
-    // MARK: - Profile Image Section
-    private var profileImageSection: some View {
-        VStack(spacing: 16) {
+    // MARK: - Profile Photo Section
+    private var profilePhotoSection: some View {
+        VStack {
             ZStack {
+                // Circle background with gradient
                 Circle()
-                    .fill(Color.black)
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.blue.opacity(0.5), Color.purple.opacity(0.3)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
+                    .frame(width: 130, height: 130)
+                    .opacity(0.5)
                 
-                if let profileImage = profileImage {
-                    Image(uiImage: profileImage)
+                // Current profile image
+                if let profilePicture = profile.profilePicture,
+                   let uiImage = UIImage(data: profilePicture) {
+                    Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 120, height: 120)
                         .clipShape(Circle())
-                } else if let profilePicture = profile.profilePicture, let uiImage = UIImage(data: profilePicture) {
-                    Image(uiImage: uiImage)
+                } else if let inputImage = inputImage {
+                    Image(uiImage: inputImage)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 120, height: 120)
@@ -349,38 +238,257 @@ struct ProfileEditView: View {
                         .resizable()
                         .scaledToFit()
                         .foregroundColor(.white)
-                        .frame(width: 80, height: 80)
+                        .frame(width: 100, height: 100)
                 }
                 
-                // Change photo button overlay
+                // Camera icon button
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
-                        PhotosPicker(selection: $selectedItem, matching: .images) {
+                        Button {
+                            showingImagePicker = true
+                        } label: {
                             Image(systemName: "camera.fill")
-                                .foregroundColor(.black)
+                                .foregroundColor(.white)
                                 .padding(8)
-                                .background(Color.white)
-                                .clipShape(Circle())
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                )
                         }
-                        .offset(x: -4, y: -4)
+                        .offset(x: 10, y: 10)
                     }
                 }
                 .frame(width: 120, height: 120)
             }
             
-            // Change photo text button
-            PhotosPicker(selection: $selectedItem, matching: .images) {
-                Text("Change Photo")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-            }
+            Text("Change Photo")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.gray)
+                .padding(.top, 12)
         }
-        .padding(.vertical, 16)
+    }
+    
+    // MARK: - Section Headers
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+        .padding(.bottom, 8)
+    }
+    
+    // MARK: - Input Field
+    private func inputField<Content: View>(title: String, iconName: String, placeholder: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+            
+            HStack(spacing: 14) {
+                Image(systemName: iconName)
+                    .foregroundColor(.gray)
+                    .frame(width: 24)
+                
+                content()
+            }
+            .padding()
+            .frame(height: 56)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemGray6).opacity(0.15))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+    }
+    
+    // MARK: - Goal Picker Overlay
+    private var goalPickerOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    withAnimation {
+                        showingGoalPicker = false
+                    }
+                }
+            
+            // Picker container
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("Select Fitness Goal")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Button {
+                        withAnimation {
+                            showingGoalPicker = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6).opacity(0.2))
+                
+                // Goals list
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(fitnessGoals, id: \.self) { goal in
+                            Button {
+                                tempFitnessGoal = goal
+                                withAnimation {
+                                    showingGoalPicker = false
+                                }
+                            } label: {
+                                HStack {
+                                    Text(goal)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.white)
+                                        .padding(.vertical, 16)
+                                    
+                                    Spacer()
+                                    
+                                    if goal == tempFitnessGoal {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .contentShape(Rectangle())
+                            }
+                            
+                            Divider()
+                                .background(Color.gray.opacity(0.2))
+                        }
+                    }
+                }
+            }
+            .background(Color(.systemGray6).opacity(0.3))
+            .cornerRadius(16)
+            .padding(.horizontal, 20)
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
+        }
+        .transition(.opacity)
+    }
+    
+    // MARK: - Date Picker Overlay
+    private var datePickerOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    withAnimation {
+                        showingDatePicker = false
+                    }
+                }
+            
+            // Date picker container
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("Select Birth Date")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Button {
+                        withAnimation {
+                            showingDatePicker = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6).opacity(0.2))
+                
+                // Date picker
+                DatePicker("", selection: $tempBirthDate, displayedComponents: .date)
+                    .datePickerStyle(WheelDatePickerStyle())
+                    .labelsHidden()
+                    .accentColor(.blue)
+                    .padding()
+                    .colorScheme(.dark)
+                
+                // Confirm button
+                Button {
+                    withAnimation {
+                        showingDatePicker = false
+                    }
+                } label: {
+                    Text("Confirm")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(height: 50)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .padding(16)
+                }
+            }
+            .background(Color(.systemGray6).opacity(0.3))
+            .cornerRadius(16)
+            .padding(.horizontal, 20)
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
+        }
+        .transition(.opacity)
     }
     
     // MARK: - Helper Methods
+    private func saveProfile() {
+        // Save name and fitness goal
+        profile.name = tempName
+        profile.fitnessGoal = tempFitnessGoal
+        
+        // Save height if valid
+        if let height = Double(tempHeight) {
+            profile.height = height
+        }
+        
+        // Save weight if valid
+        if let weight = Double(tempWeight) {
+            profile.weight = weight
+        }
+        
+        // Save birth date
+        profile.birthDate = tempBirthDate
+        
+        // Call completion handler
+        onSave()
+        
+        // Dismiss the view
+        dismiss()
+    }
+    
+    private func loadImage() {
+        guard let inputImage = inputImage else { return }
+        
+        // Convert UIImage to Data
+        if let imageData = inputImage.jpegData(compressionQuality: 0.8) {
+            // Save to profile
+            profile.profilePicture = imageData
+        }
+    }
+    
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -388,39 +496,63 @@ struct ProfileEditView: View {
         return formatter.string(from: date)
     }
     
-    private func saveProfile() {
-        // Convert height string to Double if possible
-        if let height = Double(heightString) {
-            profile.height = height
+    private func startAnimations() {
+        withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
+            animateFields = true
         }
         
-        // Convert weight string to Double if possible
-        if let weight = Double(weightString) {
-            profile.weight = weight
+        withAnimation(.easeOut(duration: 0.5).delay(0.6)) {
+            animateButton = true
+        }
+    }
+}
+
+// MARK: - Image Picker
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.allowsEditing = true
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: ImagePicker
+        
+        init(_ parent: ImagePicker) {
+            self.parent = parent
         }
         
-        // Save birth date
-        profile.birthDate = birthDate
-        
-        // Save profile image
-        if let selectedImageData = selectedImageData {
-            profile.profilePicture = selectedImageData
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let editedImage = info[.editedImage] as? UIImage {
+                parent.image = editedImage
+            } else if let originalImage = info[.originalImage] as? UIImage {
+                parent.image = originalImage
+            }
+            
+            parent.dismiss()
         }
-        
-        // Call the save callback
-        onSave()
-        
-        // Dismiss the sheet
-        presentationMode.wrappedValue.dismiss()
     }
 }
 
 struct ProfileEditView_Previews: PreviewProvider {
+    @State static private var profile = UserProfile(name: "User", fitnessGoal: "Build Muscle")
+    
     static var previews: some View {
-        ProfileEditView(
-            profile: .constant(UserProfile(name: "John Doe", fitnessGoal: "Strength Training")),
-            onSave: {}
-        )
-        .preferredColorScheme(.dark)
+        NavigationView {
+            ProfileEditView(profile: $profile) {
+                print("Profile saved")
+            }
+            .preferredColorScheme(.dark)
+        }
     }
 }
