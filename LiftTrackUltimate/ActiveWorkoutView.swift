@@ -1,326 +1,623 @@
 import SwiftUI
-import HealthKit
 
 struct ActiveWorkoutView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var dataManager: DataManager
+    
     var template: WorkoutTemplate?
     var onEnd: () -> Void
     
-    @State private var workout: AppWorkout
+    @State private var workoutName: String
+    @State private var exercises: [WorkoutExercise] = []
+    @State private var startTime = Date()
     @State private var elapsedTime: TimeInterval = 0
     @State private var timer: Timer? = nil
-    @State private var isShowingNotes = false
-    @State private var notes = ""
-    @State private var showingFinishPrompt = false
-    @State private var addExerciseButtonScale: CGFloat = 1.0
-    @State private var finishWorkoutButtonScale: CGFloat = 1.0
+    @State private var showingFinishAlert = false
     @State private var showingExerciseSelection = false
-    @EnvironmentObject var dataManager: DataManager
+    @State private var heartRate: Int = Int.random(in: 65...85) // Mock heart rate
+    @State private var isTimerPaused: Bool = false
     
-    // Persistent timer tracking
-    @AppStorage("workoutStartTime") private var workoutStartTime: Double = 0
-    
-    var body: some View {
-        ZStack {
-            // Main content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Workout header with improved layout
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading) {
-                            TextField("Workout Name", text: $workout.name)
-                                .font(.title3)
-                                .fontWeight(.bold)
-                            
-                            Text(formatTime(elapsedTime))
-                                .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        WorkoutHeartRateView()
-                    }
-                    .padding(.horizontal)
-                    
-                    // Exercise cards
-                    ForEach($workout.exercises.indices, id: \.self) { exerciseIndex in
-                        WorkoutExerciseCard(
-                            exercise: $workout.exercises[exerciseIndex],
-                            onAddSet: {
-                                addSet(to: exerciseIndex)
-                            }
-                        )
-                        .padding(.horizontal)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                    }
-                    
-                    // Add exercise button
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            addExerciseButtonScale = 1.2
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                                addExerciseButtonScale = 1.0
-                                showingExerciseSelection = true
-                            }
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Add Exercise")
-                                .fontWeight(.semibold)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(10)
-                        .scaleEffect(addExerciseButtonScale)
-                    }
-                    .padding(.horizontal)
-                    
-                    // Finish workout button
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            finishWorkoutButtonScale = 1.2
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                                finishWorkoutButtonScale = 1.0
-                                showFinishWorkout()
-                            }
-                        }
-                    }) {
-                        Text("Finish Workout")
-                            .fontWeight(.semibold)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                            .scaleEffect(finishWorkoutButtonScale)
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical)
-            }
-            
-            // Custom finish workout prompt overlay
-            if showingFinishPrompt {
-                CustomFinishWorkoutView(
-                    workout: workout,
-                    onCancel: {
-                        showingFinishPrompt = false
-                    },
-                    onFinish: {
-                        finishWorkoutAction()
-                    }
-                )
-            }
-        }
-        .navigationBarTitle("Workout", displayMode: .inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    isShowingNotes = true
-                }) {
-                    Image(systemName: "note.text")
-                }
-            }
-        }
-        .sheet(isPresented: $isShowingNotes) {
-            NavigationView {
-                TextEditor(text: $notes)
-                    .padding()
-                    .navigationTitle("Workout Notes")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") {
-                                isShowingNotes = false
-                                workout.notes = notes
-                            }
-                        }
-                    }
-            }
-        }
-        .sheet(isPresented: $showingExerciseSelection) {
-            ExerciseSelectionView { exercise in
-                addExerciseToWorkout(exercise)
-            }
-            .environmentObject(dataManager)
-        }
-        .onAppear {
-            setupTimer()
-        }
-    }
+    // Timer for heart rate simulation
+    @State private var heartRateTimer: Timer? = nil
     
     init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
         self.template = template
         self.onEnd = onEnd
-        
-        // Initialize workout from template or empty
-        let initialWorkout: AppWorkout
-        if let template = template {
-            let workoutExercises = template.exercises.map { templateExercise in
-                // Try to get last performance or use template defaults
-                let lastPerformance = DataManager.shared.getLastPerformance(for: templateExercise.exercise)
-                
-                // Create sets with individual weights from previous workout
-                let totalSets = lastPerformance?.totalSets ?? templateExercise.targetSets
-                
-                let sets = (0..<totalSets).map { setIndex -> ExerciseSet in
-                    let reps = DataManager.shared.getSetReps(for: templateExercise.exercise, setIndex: setIndex) ?? templateExercise.targetReps
-                    let weight = DataManager.shared.getSetWeight(for: templateExercise.exercise, setIndex: setIndex)
+        _workoutName = State(initialValue: template?.name ?? "Quick Workout")
+    }
+    
+    var body: some View {
+        ZStack {
+            // Background color
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                // Custom navigation bar
+                HStack {
+                    Button(action: {
+                        showingFinishAlert = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.blue)
+                    }
                     
-                    return ExerciseSet(
-                        reps: reps,
-                        weight: weight
-                    )
+                    Spacer()
+                    
+                    Text("Workout")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        // Show workout options menu
+                    }) {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.gray.opacity(0.2))
+                            .clipShape(Circle())
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
                 
-                return WorkoutExercise(
-                    exercise: templateExercise.exercise,
-                    sets: sets
-                )
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Workout header
+                        VStack(spacing: 16) {
+                            // Editable workout name
+                            TextField("Workout Name", text: $workoutName)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, 8)
+                            
+                            // Timer and heart rate
+                            HStack(spacing: 20) {
+                                // Timer display
+                                HStack {
+                                    TimerDisplay(elapsedTime: elapsedTime)
+                                    
+                                    // Play/pause button
+                                    Button(action: {
+                                        toggleTimerPause()
+                                    }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.2))
+                                                .frame(width: 50, height: 50)
+                                            
+                                            Image(systemName: isTimerPaused ? "play.fill" : "pause.fill")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                }
+                                
+                                // Heart rate display
+                                HeartRateDisplay(heartRate: heartRate)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Exercise cards - always expanded
+                        ForEach(exercises) { exercise in
+                            ExerciseCard(
+                                exercise: exercise,
+                                onSetComplete: { setIndex, isComplete in
+                                    toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
+                                },
+                                onAddSet: {
+                                    addSet(to: exercise)
+                                },
+                                onUpdateWeight: { setIndex, weight in
+                                    updateWeight(for: exercise, setIndex: setIndex, weight: weight)
+                                },
+                                onUpdateReps: { setIndex, reps in
+                                    updateReps(for: exercise, setIndex: setIndex, reps: reps)
+                                },
+                                dataManager: dataManager
+                            )
+                        }
+                        
+                        // Add exercise button
+                        Button(action: {
+                            showingExerciseSelection = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                
+                                Text("Add Exercise")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.blue)
+                            .padding(.vertical, 16)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.blue.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                            .padding(.horizontal)
+                        }
+                        
+                        // Action buttons
+                        VStack(spacing: 16) {
+                            // Complete workout button
+                            Button(action: {
+                                completeWorkout()
+                            }) {
+                                Text("Complete Workout")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color.green)
+                                    )
+                                    .padding(.horizontal)
+                            }
+                            
+                            // Cancel workout button
+                            Button(action: {
+                                showingFinishAlert = true
+                            }) {
+                                Text("Cancel Workout")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color.red)
+                                    )
+                                    .padding(.horizontal)
+                            }
+                        }
+                        
+                        // Extra padding at bottom for safe area
+                        Spacer().frame(height: 40)
+                    }
+                    .padding(.top, 16)
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .alert("End Workout?", isPresented: $showingFinishAlert) {
+            Button("Continue Workout", role: .cancel) {}
+            Button("Save and Finish", role: .destructive) {
+                completeWorkout()
+            }
+            Button("Discard Workout", role: .destructive) {
+                cancelWorkout()
+            }
+        } message: {
+            Text("What would you like to do with your current workout?")
+        }
+        .sheet(isPresented: $showingExerciseSelection) {
+            ExerciseSelectionView { exercise in
+                addExercise(exercise)
+            }
+            .environmentObject(dataManager)
+        }
+        .onAppear {
+            initializeWorkout()
+            startTimer()
+            startHeartRateSimulation()
+        }
+        .onDisappear {
+            stopTimer()
+            stopHeartRateSimulation()
+        }
+    }
+    
+    // Helper to initialize workout from template
+    private func initializeWorkout() {
+        guard let template = template else { return }
+        
+        // Create workout exercises from template
+        for templateExercise in template.exercises {
+            var exerciseSets: [ExerciseSet] = []
+            
+            for _ in 0..<templateExercise.targetSets {
+                // Use default reps if not set
+                let reps = templateExercise.targetReps ?? 10
+                
+                // Get last weight used for this exercise if available
+                let lastPerformance = dataManager.getLastPerformance(for: templateExercise.exercise)
+                let weight = lastPerformance?.lastUsedWeight
+                
+                // Create a new set with the values
+                let newSet = ExerciseSet(reps: reps, weight: weight)
+                exerciseSets.append(newSet)
             }
             
-            initialWorkout = AppWorkout(
-                id: UUID(),
-                name: template.name,
-                date: Date(),
-                duration: 0,
-                exercises: workoutExercises,
-                notes: ""
-            )
-        } else {
-            initialWorkout = AppWorkout(
-                id: UUID(),
-                name: "Workout",
-                date: Date(),
-                duration: 0,
-                exercises: [],
-                notes: ""
-            )
+            let workoutExercise = WorkoutExercise(exercise: templateExercise.exercise, sets: exerciseSets)
+            exercises.append(workoutExercise)
         }
-        
-        self._workout = State(initialValue: initialWorkout)
     }
     
-    private func setupTimer() {
-        // If no start time exists, set it now
-        if workoutStartTime == 0 {
-            workoutStartTime = Date().timeIntervalSince1970
-        }
-        
-        // Start timer
+    // Timer functions
+    private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            elapsedTime = Date().timeIntervalSince1970 - workoutStartTime
+            if !isTimerPaused {
+                elapsedTime += 1.0
+            }
         }
     }
     
-    private func finishWorkoutAction() {
-        // Mark all sets as completed
-        markAllSetsAsCompleted()
-        
-        // Stop timer
+    private func stopTimer() {
         timer?.invalidate()
         timer = nil
-        
-        // Save exercise performances
-        saveExercisePerformances()
-        
-        // Proceed with finishing the workout
-        workout.duration = elapsedTime
-        workout.notes = notes
-        dataManager.saveWorkout(workout)
-        
-        // Reset start time to zero
-        workoutStartTime = 0
-        
-        // Call end callback
-        onEnd()
     }
     
-    private func markAllSetsAsCompleted() {
-        for i in 0..<workout.exercises.count {
-            for j in 0..<workout.exercises[i].sets.count {
-                workout.exercises[i].sets[j].completed = true
-            }
+    private func toggleTimerPause() {
+        isTimerPaused.toggle()
+    }
+    
+    // Heart rate simulation
+    private func startHeartRateSimulation() {
+        heartRateTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            // Simulate slight heart rate changes
+            heartRate = max(60, min(180, heartRate + Int.random(in: -3...5)))
         }
     }
     
-    private func addExerciseToWorkout(_ exercise: Exercise) {
-        // Try to get last performance
-        let lastPerformance = dataManager.getLastPerformance(for: exercise)
+    private func stopHeartRateSimulation() {
+        heartRateTimer?.invalidate()
+        heartRateTimer = nil
+    }
+    
+    // Exercise management functions
+    private func addExercise(_ exercise: Exercise) {
+        // Default to 3 sets of 10 reps
+        let sets = [
+            ExerciseSet(reps: 10, weight: nil),
+            ExerciseSet(reps: 10, weight: nil),
+            ExerciseSet(reps: 10, weight: nil)
+        ]
         
-        // Determine sets and reps
-        let totalSets = lastPerformance?.totalSets ?? 3
-        let defaultReps = lastPerformance?.lastUsedReps ?? 10
-        
-        // Create sets with individual weights from previous workout
-        let sets = (0..<totalSets).map { setIndex -> ExerciseSet in
-            let reps = dataManager.getSetReps(for: exercise, setIndex: setIndex) ?? defaultReps
-            let weight = dataManager.getSetWeight(for: exercise, setIndex: setIndex)
+        let workoutExercise = WorkoutExercise(exercise: exercise, sets: sets)
+        exercises.append(workoutExercise)
+    }
+    
+    private func addSet(to exercise: WorkoutExercise) {
+        if let index = exercises.firstIndex(where: { $0.id == exercise.id }) {
+            // Get the last set (if any)
+            let lastSet = exercises[index].sets.last
             
-            return ExerciseSet(
-                reps: reps,
-                weight: weight
-            )
+            // Create new set with simple parameters
+            let reps = lastSet?.reps ?? 10
+            let weight = lastSet?.weight
+            
+            // Create new set with correct parameter order
+            let newSet = ExerciseSet(reps: reps, weight: weight)
+            
+            exercises[index].sets.append(newSet)
         }
-        
-        // Create the workout exercise
-        let workoutExercise = WorkoutExercise(
-            exercise: exercise,
-            sets: sets
+    }
+    
+    private func toggleSetCompletion(for exercise: WorkoutExercise, setIndex: Int, isComplete: Bool) {
+        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
+           setIndex < exercises[exerciseIndex].sets.count {
+            exercises[exerciseIndex].sets[setIndex].completed = isComplete
+        }
+    }
+    
+    private func updateWeight(for exercise: WorkoutExercise, setIndex: Int, weight: Double?) {
+        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
+           setIndex < exercises[exerciseIndex].sets.count {
+            exercises[exerciseIndex].sets[setIndex].weight = weight
+        }
+    }
+    
+    private func updateReps(for exercise: WorkoutExercise, setIndex: Int, reps: Int?) {
+        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
+           setIndex < exercises[exerciseIndex].sets.count {
+            exercises[exerciseIndex].sets[setIndex].reps = reps
+        }
+    }
+    
+    private func completeWorkout() {
+        // Create and save the completed workout
+        let completedWorkout = AppWorkout(
+            id: UUID(),
+            name: workoutName,
+            date: startTime,
+            duration: elapsedTime,
+            exercises: exercises
         )
         
-        // Add to workout
-        workout.exercises.append(workoutExercise)
-    }
-    
-    private func saveExercisePerformances() {
-        for exercise in workout.exercises {
-            // Save performance data with individual set data
+        dataManager.saveWorkout(completedWorkout)
+        
+        // Save performance data for each exercise
+        for exercise in exercises {
             dataManager.saveExercisePerformance(from: exercise)
         }
+        
+        // End workout and dismiss
+        onEnd()
+        dismiss()
     }
     
-    private func showFinishWorkout() {
-        showingFinishPrompt = true
+    private func cancelWorkout() {
+        // Discard the workout without saving
+        onEnd()
+        dismiss()
+    }
+}
+
+// MARK: - Supporting Views
+
+struct TimerDisplay: View {
+    var elapsedTime: TimeInterval
+    
+    var formattedTime: String {
+        let hours = Int(elapsedTime) / 3600
+        let minutes = (Int(elapsedTime) % 3600) / 60
+        let seconds = Int(elapsedTime) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
     
-    private func addSet(to exerciseIndex: Int) {
-        let currentExercise = workout.exercises[exerciseIndex]
-        
-        // Determine default values based on the last set
-        var defaultReps: Int? = 10
-        var defaultWeight: Double? = nil
-        
-        if let lastSet = currentExercise.sets.last, lastSet.completed {
-            // If there's a completed set, use those values
-            defaultReps = lastSet.reps
-            defaultWeight = lastSet.weight
-        } else {
-            // Try to get values from performance history
-            let setIndex = currentExercise.sets.count // Next set index
-            defaultReps = dataManager.getSetReps(for: currentExercise.exercise, setIndex: setIndex) ?? 10
-            defaultWeight = dataManager.getSetWeight(for: currentExercise.exercise, setIndex: setIndex)
+    var body: some View {
+        Text(formattedTime)
+            .font(.system(size: 32, weight: .semibold, design: .monospaced))
+            .foregroundColor(.white)
+    }
+}
+
+struct HeartRateDisplay: View {
+    var heartRate: Int
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "heart.fill")
+                .foregroundColor(.red)
+                .font(.system(size: 18))
+            
+            Text("\(heartRate)")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+            
+            Text("BPM")
+                .font(.system(size: 14))
+                .foregroundColor(.gray)
         }
-        
-        // Add a new set
-        workout.exercises[exerciseIndex].sets.append(
-            ExerciseSet(reps: defaultReps, weight: defaultWeight)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.red.opacity(0.15))
         )
     }
+}
+
+// Always expanded exercise card
+struct ExerciseCard: View {
+    var exercise: WorkoutExercise
+    var onSetComplete: (Int, Bool) -> Void
+    var onAddSet: () -> Void
+    var onUpdateWeight: (Int, Double?) -> Void
+    var onUpdateReps: (Int, Int?) -> Void
+    var dataManager: DataManager
     
-    private func formatTime(_ timeInterval: TimeInterval) -> String {
-        let hours = Int(timeInterval) / 3600
-        let minutes = (Int(timeInterval) % 3600) / 60
-        let seconds = Int(timeInterval) % 60
+    var body: some View {
+        VStack(spacing: 0) {
+            // Exercise header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(exercise.exercise.name)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text(exercise.exercise.muscleGroups.joined(separator: ", "))
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                // Completion indicator
+                let completedSets = exercise.sets.filter { $0.completed }.count
+                let totalSets = exercise.sets.count
+                
+                if completedSets > 0 {
+                    Text("\(completedSets)/\(totalSets)")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(completedSets == totalSets ? .green : .orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    (completedSets == totalSets ? Color.green : Color.orange)
+                                        .opacity(0.15)
+                                )
+                        )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+            
+            // Table header
+            HStack {
+                Text("Set")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                    .frame(width: 40, alignment: .center)
+                
+                Text("Last Time")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                    .frame(width: 80, alignment: .center)
+                
+                Text("kg")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                    .frame(width: 70, alignment: .center)
+                
+                Text("Reps")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                    .frame(width: 70, alignment: .center)
+                
+                Text("Done")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                    .frame(width: 60, alignment: .center)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            
+            // Sets rows
+            ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
+                DetailedSetRow(
+                    setNumber: index + 1,
+                    lastTimeText: getLastTimeText(for: exercise.exercise, setIndex: index),
+                    weight: set.weight != nil ? String(format: "%.1f", set.weight!) : "",
+                    reps: set.reps != nil ? "\(set.reps!)" : "",
+                    isCompleted: set.completed,
+                    onToggleComplete: { isComplete in
+                        onSetComplete(index, isComplete)
+                    },
+                    onWeightChange: { newValue in
+                        let weight = Double(newValue.replacingOccurrences(of: ",", with: "."))
+                        onUpdateWeight(index, weight)
+                    },
+                    onRepsChange: { newValue in
+                        let reps = Int(newValue)
+                        onUpdateReps(index, reps)
+                    }
+                )
+                
+                Divider()
+                    .background(Color.gray.opacity(0.2))
+                    .padding(.horizontal, 20)
+            }
+            
+            // Add Set button
+            Button(action: onAddSet) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(.blue)
+                    
+                    Text("Add Set")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.blue)
+                }
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color(.systemGray6).opacity(0.2))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal)
+    }
+    
+    // Helper to format last time text
+    private func getLastTimeText(for exercise: Exercise, setIndex: Int) -> String {
+        let lastPerformance = dataManager.getLastPerformance(for: exercise)
         
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        if setIndex < lastPerformance?.setWeights.count ?? 0,
+           let weight = lastPerformance?.setWeights[setIndex],
+           let reps = lastPerformance?.setReps[setIndex] {
+            return "\(String(format: "%.1f", weight))×\(reps)"
+        }
+        return "—"
+    }
+}
+
+// Detailed set row for editing weight and reps
+struct DetailedSetRow: View {
+    var setNumber: Int
+    var lastTimeText: String
+    @State var weight: String
+    @State var reps: String
+    var isCompleted: Bool
+    var onToggleComplete: (Bool) -> Void
+    var onWeightChange: (String) -> Void
+    var onRepsChange: (String) -> Void
+    
+    var body: some View {
+        HStack {
+            // Set number
+            Text("\(setNumber)")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 40, alignment: .center)
+            
+            // Last time
+            Text(lastTimeText)
+                .font(.system(size: 14))
+                .foregroundColor(.gray)
+                .frame(width: 80, alignment: .center)
+            
+            // Weight input
+            TextField("0", text: $weight, onEditingChanged: { editing in
+                if !editing {
+                    onWeightChange(weight)
+                }
+            })
+            .keyboardType(.decimalPad)
+            .font(.system(size: 16, weight: .medium))
+            .multilineTextAlignment(.center)
+            .foregroundColor(.white)
+            .frame(width: 70, height: 40)
+            .background(Color(.systemGray6).opacity(0.3))
+            .cornerRadius(10)
+            
+            // Reps input
+            TextField("0", text: $reps, onEditingChanged: { editing in
+                if !editing {
+                    onRepsChange(reps)
+                }
+            })
+            .keyboardType(.numberPad)
+            .font(.system(size: 16, weight: .medium))
+            .multilineTextAlignment(.center)
+            .foregroundColor(.white)
+            .frame(width: 70, height: 40)
+            .background(Color(.systemGray6).opacity(0.3))
+            .cornerRadius(10)
+            
+            // Completion toggle
+            Button(action: {
+                onToggleComplete(!isCompleted)
+            }) {
+                ZStack {
+                    Circle()
+                        .stroke(isCompleted ? Color.green : Color.gray.opacity(0.5), lineWidth: 2)
+                        .frame(width: 30, height: 30)
+                    
+                    if isCompleted {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 22, height: 22)
+                    }
+                }
+            }
+            .frame(width: 60, alignment: .center)
+        }
+        .padding(.vertical, 8)
     }
 }
