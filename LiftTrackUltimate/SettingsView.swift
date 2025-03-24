@@ -10,8 +10,10 @@ struct SettingsView: View {
     
     @State private var showingExportSheet = false
     @State private var showingResetConfirmation = false
+    @State private var showingExerciseResetConfirmation = false
     @State private var showingPrivacyPolicy = false
     @State private var showingTermsOfService = false
+    @State private var resetExerciseComplete = false
     
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
@@ -171,6 +173,28 @@ struct SettingsView: View {
                             Divider()
                                 .background(Color.gray.opacity(0.3))
                             
+                            // Reset Exercise Database - NEW BUTTON
+                            Button(action: {
+                                showingExerciseResetConfirmation = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "dumbbell.fill")
+                                        .font(.system(size: 20))
+                                        .frame(width: 26, height: 26)
+                                        .foregroundColor(.blue)
+                                    
+                                    Text("Reset Exercise Database")
+                                        .font(.body)
+                                        .foregroundColor(.blue)
+                                    
+                                    Spacer()
+                                }
+                                .padding(.vertical, 12)
+                            }
+                            
+                            Divider()
+                                .background(Color.gray.opacity(0.3))
+                            
                             // Reset data button
                             Button(action: {
                                 showingResetConfirmation = true
@@ -274,6 +298,37 @@ struct SettingsView: View {
                 }
                 .padding(16)
             }
+            
+            // Success message overlay for exercise reset
+            if resetExerciseComplete {
+                VStack {
+                    Spacer()
+                    
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        
+                        Text("Exercise database has been reset!")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.systemGray6).opacity(0.8))
+                    )
+                    .padding(.bottom, 50)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onAppear {
+                    // Hide the success message after 3 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation {
+                            resetExerciseComplete = false
+                        }
+                    }
+                }
+            }
         }
         .navigationBarTitle("", displayMode: .inline)
         .navigationBarItems(trailing: Button("Done") {
@@ -295,6 +350,33 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingTermsOfService) {
             legalDocumentView(title: "Terms of Service", content: termsOfServiceText)
+        }
+        .alert(isPresented: $showingExerciseResetConfirmation) {
+            Alert(
+                title: Text("Reset Exercise Database"),
+                message: Text("This will replace your current exercises with a comprehensive list of 42 exercises. Your workouts and other data will not be affected. This action cannot be undone."),
+                primaryButton: .destructive(Text("Reset")) {
+                    resetExerciseDatabase()
+                },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+    
+    // MARK: - Exercise Reset Function
+    private func resetExerciseDatabase() {
+        // Clear exercises from UserDefaults
+        UserDefaults.standard.removeObject(forKey: "exercises")
+        
+        // Clear exercises from DataManager
+        dataManager.exercises = []
+        
+        // Force load of sample data
+        dataManager.loadSampleData()
+        
+        // Show success message
+        withAnimation {
+            resetExerciseComplete = true
         }
     }
     

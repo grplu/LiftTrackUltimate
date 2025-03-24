@@ -4,9 +4,9 @@ struct ExercisesView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var searchText = ""
     @State private var selectedMuscleGroup: String? = nil
-    @State private var showingNewExerciseView = false
     @State private var selectedExercise: Exercise? = nil
     @State private var showingDetailView = false
+    @State private var showingNewExerciseView = false
     
     // Muscle group filters
     let muscleGroups = ["All", "Chest", "Back", "Shoulders", "Delts", "Arms", "Legs", "Core"]
@@ -116,35 +116,18 @@ struct ExercisesView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(muscleGroups, id: \.self) { muscleGroup in
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                MuscleGroupButton(
+                                    muscleGroup: muscleGroup,
+                                    isSelected: selectedMuscleGroup == muscleGroup,
+                                    onTap: {
                                         if selectedMuscleGroup == muscleGroup {
                                             selectedMuscleGroup = nil
                                         } else {
                                             selectedMuscleGroup = muscleGroup
                                         }
-                                        // We removed expandedExerciseId references
+                                        // No reference to expandedExerciseId anymore
                                     }
-                                }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: getIconForMuscleGroup(muscleGroup))
-                                            .font(.system(size: 14))
-                                        
-                                        Text(muscleGroup)
-                                            .font(.subheadline)
-                                            .fontWeight(selectedMuscleGroup == muscleGroup ? .semibold : .medium)
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedMuscleGroup == muscleGroup ?
-                                                  Color.blue :
-                                                  Color(.systemGray6).opacity(0.2)
-                                            )
-                                    )
-                                    .foregroundColor(.white)
-                                }
+                                )
                             }
                         }
                         .padding(.horizontal)
@@ -300,7 +283,7 @@ struct MuscleGroupButton: View {
     }
 }
 
-// Muscle Group Section
+// Muscle Group Section - fixed structure without expandedExerciseId
 struct ExerciseMuscleGroupSection: View {
     var muscleGroup: String
     var exercises: [Exercise]
@@ -334,10 +317,10 @@ struct ExerciseMuscleGroupSection: View {
             ForEach(exercises) { exercise in
                 ModernExerciseCard(
                     exercise: exercise,
-                    isExpanded: false, // No longer used
+                    isExpanded: false, // No more expansion
                     performance: dataManager.getLastPerformance(for: exercise),
                     onTap: {
-                        // Direct to detail view
+                        // Direct navigation to details
                         onSelectExercise(exercise)
                     }
                 )
@@ -432,11 +415,18 @@ struct ModernExerciseCard: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                             .background(
                                 Capsule()
                                     .fill(Color.blue.opacity(0.2))
                             )
+                    }
+                    
+                    // Last used date - show only if date exists, using a safe approach
+                    if performance?.date != nil {
+                        Text(formatDate(performance!.date))
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
                     }
                 }
                 .padding()
@@ -471,5 +461,128 @@ struct ModernExerciseCard: View {
         
         // Default icon
         return "figure.mixed.cardio"
+    }
+    
+    // Helper function to safely format date
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+// Expanded Detail View - separated to reduce complexity
+struct ExerciseDetailExpanded: View {
+    var performance: ExercisePerformance?
+    @Binding var isFavorite: Bool
+    var onViewDetails: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Performance data
+            HStack(spacing: 20) {
+                // Last used weight
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Last Weight")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    
+                    if let weight = performance?.lastUsedWeight {
+                        Text("\(String(format: "%.1f", weight)) kg")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                    } else {
+                        Text("—")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Last reps
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Last Reps")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    
+                    if let reps = performance?.lastUsedReps {
+                        Text("\(reps)")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                    } else {
+                        Text("—")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Best set
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Best Set")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    
+                    if let weight = performance?.avgWeight, let reps = performance?.avgReps {
+                        Text("\(String(format: "%.1f", weight)) × \(reps)")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                    } else {
+                        Text("—")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal)
+            
+            // Action buttons
+            HStack(spacing: 12) {
+                // Delete exercise button
+                Button(action: {
+                    // Delete functionality would be implemented here
+                    // and connected to DataManager
+                }) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete Exercise")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.red)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .background(Capsule().fill(Color.red.opacity(0.2)))
+                }
+                
+                Spacer()
+                
+                // View details button
+                Button(action: onViewDetails) {
+                    Text("Details")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 16)
+                        .background(Capsule().fill(Color(.systemGray6).opacity(0.5)))
+                }
+                
+                // Favorite button
+                Button(action: {
+                    isFavorite.toggle()
+                    // This would be hooked up to DataManager
+                }) {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .foregroundColor(isFavorite ? .yellow : .gray)
+                        .padding(10)
+                        .background(Circle().fill(Color(.systemGray6).opacity(0.3)))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 16)
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+        .background(Color(.systemGray6).opacity(0.05))
     }
 }
