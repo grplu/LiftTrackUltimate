@@ -58,11 +58,8 @@ struct TemplateDetailView: View {
             }
         }
         .sheet(isPresented: $showingEditView) {
-            EditTemplateView(template: template) { updatedTemplate in
-                dataManager.updateTemplate(updatedTemplate)
-                showingEditView = false
-            }
-            .environmentObject(dataManager)
+            EditTemplateView(template: template)
+                .environmentObject(dataManager)
         }
         .sheet(isPresented: $isWorkoutActive) {
             // Use the existing ActiveWorkoutView which expects a template

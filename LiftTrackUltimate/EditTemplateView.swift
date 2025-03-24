@@ -4,105 +4,130 @@ struct EditTemplateView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
+    var originalTemplate: WorkoutTemplate
+    
     @State private var templateName: String
     @State private var selectedExercises: [TemplateExercise]
     @State private var showingExerciseSelection = false
     
-    private var originalTemplate: WorkoutTemplate
-    var onSave: (WorkoutTemplate) -> Void
-    
-    init(template: WorkoutTemplate, onSave: @escaping (WorkoutTemplate) -> Void) {
+    init(template: WorkoutTemplate) {
         self.originalTemplate = template
-        self._templateName = State(initialValue: template.name)
-        self._selectedExercises = State(initialValue: template.exercises)
-        self.onSave = onSave
+        _templateName = State(initialValue: template.name)
+        _selectedExercises = State(initialValue: template.exercises)
     }
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Template name input
-                TextField("Template Name", text: $templateName)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(10)
-                    .padding()
+            ZStack {
+                // Background color
+                Color.black.edgesIgnoringSafeArea(.all)
                 
-                // Selected exercises
-                List {
-                    ForEach(selectedExercises.indices, id: \.self) { index in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(selectedExercises[index].exercise.name)
-                                .font(.headline)
-                            
-                            HStack {
-                                Stepper(
-                                    "Sets: \(selectedExercises[index].targetSets)",
-                                    value: Binding(
-                                        get: { selectedExercises[index].targetSets },
-                                        set: { newValue in
-                                            var updated = selectedExercises[index]
-                                            updated.targetSets = newValue
-                                            selectedExercises[index] = updated
-                                        }
-                                    ),
-                                    in: 1...10
-                                )
-                                .frame(maxWidth: 150)
-                                
-                                Spacer()
-                                
-                                if selectedExercises[index].targetReps != nil {
-                                    Stepper(
-                                        "Reps: \(selectedExercises[index].targetReps ?? 0)",
-                                        value: Binding(
-                                            get: { selectedExercises[index].targetReps ?? 0 },
-                                            set: { newValue in
-                                                var updated = selectedExercises[index]
-                                                updated.targetReps = newValue
-                                                selectedExercises[index] = updated
-                                            }
-                                        ),
-                                        in: 1...100
-                                    )
-                                    .frame(maxWidth: 150)
-                                }
+                // Content
+                VStack(spacing: 24) {
+                    // Template name field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Template Name")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        ZStack(alignment: .leading) {
+                            if templateName.isEmpty {
+                                Text("e.g. Upper Body Strength")
+                                    .foregroundColor(.gray)
                             }
-                            .font(.subheadline)
+                            TextField("", text: $templateName)
+                                .foregroundColor(.white)
                         }
-                        .padding(.vertical, 5)
+                        .padding()
+                        .background(Color(.systemGray6).opacity(0.2))
+                        .cornerRadius(10)
                     }
-                    .onDelete(perform: { indexSet in
-                        selectedExercises.remove(atOffsets: indexSet)
-                    })
-                    .onMove(perform: { indices, newOffset in
-                        selectedExercises.move(fromOffsets: indices, toOffset: newOffset)
-                    })
-                }
-                
-                // Add exercise button
-                Button(action: {
-                    showingExerciseSelection = true
-                }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Add Exercise")
+                    
+                    // Exercises section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Exercises")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                showingExerciseSelection = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Exercise")
+                                }
+                                .foregroundColor(.blue)
+                            }
+                        }
+                        
+                        if selectedExercises.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "dumbbell.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray)
+                                    .padding(.top, 20)
+                                
+                                Text("No exercises added yet")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Tap the button above to add exercises to your template")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 30)
+                        } else {
+                            // List of selected exercises
+                            ForEach(selectedExercises) { exercise in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(exercise.exercise.name)
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        
+                                        let repsText = exercise.targetReps != nil ? "\(exercise.targetReps!)" : "0"
+                                        Text("\(exercise.targetSets) sets × \(repsText) reps")
+                                            .font(.subheadline)
+                                            .foregroundColor(.gray)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        // Remove exercise from selection
+                                        if let index = selectedExercises.firstIndex(where: { $0.id == exercise.id }) {
+                                            selectedExercises.remove(at: index)
+                                        }
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6).opacity(0.2))
+                                .cornerRadius(10)
+                            }
+                        }
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(10)
+                    
+                    Spacer()
                 }
                 .padding()
             }
-            .navigationTitle("Edit Template")
+            .navigationBarTitle("Edit Template", displayMode: .inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         let updatedTemplate = WorkoutTemplate(
@@ -114,26 +139,11 @@ struct EditTemplateView: View {
                     }
                     .disabled(selectedExercises.isEmpty)
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
             }
             .sheet(isPresented: $showingExerciseSelection) {
-                ExerciseSelectionView(
-                    onSelect: { exercise in
-                        // Single selection callback
-                        addExerciseToTemplate(exercise)
-                        showingExerciseSelection = false
-                    },
-                    onSelectMultiple: { exercises in
-                        // Multiple selection callback
-                        for exercise in exercises {
-                            addExerciseToTemplate(exercise)
-                        }
-                        // The view will dismiss itself after multi-selection
-                    }
-                )
+                ExerciseSelectionView { exercise in
+                    addExerciseToTemplate(exercise)
+                }
                 .environmentObject(dataManager)
             }
         }
@@ -141,11 +151,24 @@ struct EditTemplateView: View {
     
     // Helper function to add an exercise to the template
     private func addExerciseToTemplate(_ exercise: Exercise) {
+        // Check for last performance
+        let lastPerformance = dataManager.getLastPerformance(for: exercise)
+        
+        // Safely unwrap optionals or provide defaults
+        let targetSets = lastPerformance?.totalSets ?? 3
+        let targetReps = lastPerformance?.lastUsedReps ?? 10
+        
         let templateExercise = TemplateExercise(
             exercise: exercise,
-            targetSets: 3,
-            targetReps: 10
+            targetSets: targetSets,
+            targetReps: targetReps
         )
+        
         selectedExercises.append(templateExercise)
+    }
+    
+    private func onSave(_ template: WorkoutTemplate) {
+        dataManager.updateTemplate(template)
+        dismiss()
     }
 }

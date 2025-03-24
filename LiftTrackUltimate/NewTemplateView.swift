@@ -1,84 +1,124 @@
 import SwiftUI
 
 struct NewTemplateView: View {
-    @State private var templateName = ""
-    @State private var selectedExercises: [TemplateExercise] = []
-    @State private var showingExerciseSelection = false
-    @State private var buttonScale: CGFloat = 1.0
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
-    var onSave: (WorkoutTemplate) -> Void
+    @State private var templateName = ""
+    @State private var selectedExercises: [TemplateExercise] = []
+    @State private var showingExerciseSelection = false
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Template name input
-                TextField("Template Name", text: $templateName)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(10)
-                    .padding()
+            ZStack {
+                // Background color
+                Color.black.edgesIgnoringSafeArea(.all)
                 
-                // Selected exercises
-                List {
-                    ForEach(selectedExercises) { templateExercise in
+                // Content
+                VStack(spacing: 24) {
+                    // Template name field
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Template Name")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        ZStack(alignment: .leading) {
+                            if templateName.isEmpty {
+                                Text("e.g. Upper Body Strength")
+                                    .foregroundColor(.gray)
+                            }
+                            TextField("", text: $templateName)
+                                .foregroundColor(.white)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6).opacity(0.2))
+                        .cornerRadius(10)
+                    }
+                    
+                    // Exercises section
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(templateExercise.exercise.name)
-                                    .font(.headline)
-                                
+                            Text("Exercises")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                showingExerciseSelection = true
+                            }) {
                                 HStack {
-                                    Text("\(templateExercise.targetSets) sets")
-                                    
-                                    if let reps = templateExercise.targetReps {
-                                        Text("•")
-                                        Text("\(reps) reps")
-                                    }
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Exercise")
                                 }
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.blue)
                             }
                         }
-                        .padding(.vertical, 5)
-                    }
-                    .onDelete(perform: { indexSet in
-                        selectedExercises.remove(atOffsets: indexSet)
-                    })
-                }
-                
-                // Add exercise button with cute animation
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                        buttonScale = 1.2
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                            buttonScale = 1.0
-                            showingExerciseSelection = true
+                        
+                        if selectedExercises.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "dumbbell.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray)
+                                    .padding(.top, 20)
+                                
+                                Text("No exercises added yet")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Tap the button above to add exercises to your template")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 30)
+                        } else {
+                            // List of selected exercises
+                            ForEach(selectedExercises) { exercise in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(exercise.exercise.name)
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        
+                                        Text("\(exercise.targetSets) sets × \(exercise.targetReps ?? 0) reps")
+                                            .font(.subheadline)
+                                            .foregroundColor(.gray)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        // Remove exercise from selection
+                                        if let index = selectedExercises.firstIndex(where: { $0.id == exercise.id }) {
+                                            selectedExercises.remove(at: index)
+                                        }
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6).opacity(0.2))
+                                .cornerRadius(10)
+                            }
                         }
                     }
-                }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Add Exercise")
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(10)
-                    .scaleEffect(buttonScale)
+                    
+                    Spacer()
                 }
                 .padding()
             }
-            .navigationTitle("New Template")
+            .navigationBarTitle("Create Template", displayMode: .inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         let newTemplate = WorkoutTemplate(
@@ -91,17 +131,9 @@ struct NewTemplateView: View {
                 }
             }
             .sheet(isPresented: $showingExerciseSelection) {
-                ExerciseSelectionView(
-                    onSelect: { exercise in
-                        addExerciseToTemplate(exercise)
-                        showingExerciseSelection = false
-                    },
-                    onSelectMultiple: { exercises in
-                        for exercise in exercises {
-                            addExerciseToTemplate(exercise)
-                        }
-                    }
-                )
+                ExerciseSelectionView { exercise in
+                    addExerciseToTemplate(exercise)
+                }
                 .environmentObject(dataManager)
             }
         }
@@ -112,11 +144,21 @@ struct NewTemplateView: View {
         // Check for last performance
         let lastPerformance = dataManager.getLastPerformance(for: exercise)
         
+        // Safely unwrap optionals or provide defaults
+        let targetSets = lastPerformance?.totalSets ?? 3
+        let targetReps = lastPerformance?.lastUsedReps ?? 10
+        
         let templateExercise = TemplateExercise(
             exercise: exercise,
-            targetSets: lastPerformance?.totalSets ?? 3,
-            targetReps: lastPerformance?.lastUsedReps ?? 10
+            targetSets: targetSets,
+            targetReps: targetReps
         )
+        
         selectedExercises.append(templateExercise)
+    }
+    
+    private func onSave(_ template: WorkoutTemplate) {
+        dataManager.saveTemplate(template)
+        dismiss()
     }
 }

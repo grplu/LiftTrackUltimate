@@ -118,16 +118,12 @@ struct WorkoutView: View {
             }
             .sheet(isPresented: $showingEditSheet) {
                 if let template = templateToEdit {
-                    EditTemplateView(template: template, onSave: { updatedTemplate in
-                        dataManager.updateTemplate(updatedTemplate)
-                    })
-                    .environmentObject(dataManager)
+                    EditTemplateView(template: template)
+                        .environmentObject(dataManager)
                 } else {
                     // Create new template
-                    EditTemplateView(template: WorkoutTemplate(name: "New Template", exercises: []), onSave: { newTemplate in
-                        dataManager.saveTemplate(newTemplate)
-                    })
-                    .environmentObject(dataManager)
+                    EditTemplateView(template: WorkoutTemplate(name: "New Template", exercises: []))
+                        .environmentObject(dataManager)
                 }
             }
         }
