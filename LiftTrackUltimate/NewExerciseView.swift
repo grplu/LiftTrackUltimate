@@ -22,7 +22,7 @@ struct NewExerciseView: View {
     
     // Accordion muscle group states
     @State private var expandedMuscleGroup: String? = nil
-    @State private var selectedMuscleSubregion: String? = nil
+    @State private var selectedMuscleSubregions: Set<String> = [] // Changed to Set to allow multiple selections
     
     // Available categories
     let categories = ["Strength", "Cardio", "Flexibility", "Balance", "Core"]
@@ -35,39 +35,29 @@ struct NewExerciseView: View {
         let subregions: [String]
     }
     
-    // List of all muscle groups with their subregions
+    // List of all muscle groups with their subregions with more direct icons
     let muscleGroups = [
-        MuscleGroupData(name: "Chest", icon: "figure.arms.open",
+        MuscleGroupData(name: "Chest", icon: "heart.fill", // More direct chest icon
                      subregions: ["Chest", "Upper Chest", "Lower Chest"]),
-        MuscleGroupData(name: "Back", icon: "figure.strengthtraining.traditional",
+        MuscleGroupData(name: "Back", icon: "rectangle.fill", // Simplified back icon
                      subregions: ["Back", "Upper Back", "Lower Back", "Lats", "Traps"]),
-        MuscleGroupData(name: "Shoulders", icon: "figure.arms.open",
+        MuscleGroupData(name: "Shoulders", icon: "seal.fill", // More rounded for shoulders
                      subregions: ["Shoulders", "Front Delts", "Side Delts", "Rear Delts"]),
-        MuscleGroupData(name: "Arms", icon: "dumbbell.fill",
+        MuscleGroupData(name: "Arms", icon: "app.fill", // Simpler arm icon
                      subregions: ["Arms", "Biceps", "Triceps", "Forearms"]),
-        MuscleGroupData(name: "Legs", icon: "figure.walk",
+        MuscleGroupData(name: "Legs", icon: "line.2.vertical.circle.fill", // Simple legs icon
                      subregions: ["Legs", "Quadriceps", "Hamstrings", "Calves", "Glutes"]),
-        MuscleGroupData(name: "Core", icon: "figure.core.training",
+        MuscleGroupData(name: "Core", icon: "seal", // Core icon
                      subregions: ["Core", "Abdominals", "Obliques"])
     ]
     
     // Computed property for save button availability
     private var canSave: Bool {
-        return !name.isEmpty && selectedMuscleSubregion != nil
+        return !name.isEmpty && !selectedMuscleSubregions.isEmpty
     }
     
     var body: some View {
         ZStack {
-            // Background color to detect taps
-            Color.black.opacity(0.01) // Nearly transparent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle()) // Make it tappable
-                .onTapGesture {
-                    // Dismiss keyboard
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    focusedField = nil
-                }
-            
             // Background with subtle gradient
             LinearGradient(
                 gradient: Gradient(colors: [Color.black, Color(red: 0.08, green: 0.08, blue: 0.1)]),
@@ -76,122 +66,135 @@ struct NewExerciseView: View {
             )
             .edgesIgnoringSafeArea(.all)
             
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Exercise details section
-                    VStack(alignment: .leading, spacing: 16) {
-                        sectionHeader("EXERCISE DETAILS")
+            // Transparent background for detecting taps
+            Color.black.opacity(0.01)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    dismissKeyboard()
+                }
+            
+            // Main content layout
+            VStack(spacing: 0) {
+                // Main scrollable content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Exercise details section
+                        VStack(alignment: .leading, spacing: 16) {
+                            sectionHeader("EXERCISE DETAILS")
+                                .opacity(animateFields ? 1 : 0)
+                                .offset(y: animateFields ? 0 : 10)
+                            
+                            // Name field
+                            inputField(
+                                title: "Exercise Name",
+                                iconName: "dumbbell.fill",
+                                placeholder: "Enter exercise name"
+                            ) {
+                                TextField("", text: $name)
+                                    .foregroundColor(.white)
+                                    .focused($focusedField, equals: .name)
+                                    .onChange(of: name) { newValue in
+                                        updateSaveButtonState()
+                                    }
+                            }
                             .opacity(animateFields ? 1 : 0)
                             .offset(y: animateFields ? 0 : 10)
-                        
-                        // Name field
-                        inputField(
-                            title: "Exercise Name",
-                            iconName: "dumbbell.fill",
-                            placeholder: "Enter exercise name"
-                        ) {
-                            TextField("", text: $name)
-                                .foregroundColor(.white)
-                                .focused($focusedField, equals: .name)
-                                .onChange(of: name) { newValue in
-                                    updateSaveButtonState()
-                                }
-                        }
-                        .opacity(animateFields ? 1 : 0)
-                        .offset(y: animateFields ? 0 : 10)
-                        
-                        // Category picker - now as a horizontal scroller
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Image(systemName: "list.bullet")
-                                    .foregroundColor(.gray)
-                                    .frame(width: 24)
-                                
-                                Text("Category")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.gray)
-                            }
                             
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(categories, id: \.self) { cat in
-                                        CategoryPill(
-                                            title: cat,
-                                            isSelected: category == cat,
-                                            action: {
-                                                category = cat
-                                                // Dismiss keyboard when selecting category
-                                                focusedField = nil
-                                            }
-                                        )
+                            // Category picker - now as a horizontal scroller
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Image(systemName: "list.bullet")
+                                        .foregroundColor(.gray)
+                                        .frame(width: 24)
+                                    
+                                    Text("Category")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        ForEach(categories, id: \.self) { cat in
+                                            CategoryPill(
+                                                title: cat,
+                                                isSelected: category == cat,
+                                                action: {
+                                                    category = cat
+                                                    dismissKeyboard()
+                                                }
+                                            )
+                                        }
                                     }
+                                    .padding(.vertical, 4)
                                 }
-                                .padding(.vertical, 4)
                             }
-                        }
-                        .opacity(animateFields ? 1 : 0)
-                        .offset(y: animateFields ? 0 : 10)
-                        
-                        // Instructions field with adaptive height
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Image(systemName: "text.alignleft")
-                                    .foregroundColor(.gray)
-                                    .frame(width: 24)
-                                
-                                Text("Instructions")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.gray)
-                            }
+                            .opacity(animateFields ? 1 : 0)
+                            .offset(y: animateFields ? 0 : 10)
                             
-                            ZStack(alignment: .topLeading) {
-                                // Placeholder text
-                                if instructions.isEmpty {
-                                    Text("Describe how to perform this exercise...")
-                                        .foregroundColor(.gray.opacity(0.7))
-                                        .padding(.top, 12)
-                                        .padding(.leading, 5)
+                            // Instructions field with adaptive height
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Image(systemName: "text.alignleft")
+                                        .foregroundColor(.gray)
+                                        .frame(width: 24)
+                                    
+                                    Text("Instructions")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.gray)
                                 }
                                 
-                                // Actual text editor
-                                TextEditor(text: $instructions)
-                                    .foregroundColor(.white)
-                                    .focused($focusedField, equals: .instructions)
-                                    .frame(minHeight: instructions.isEmpty ? 60 : min(max(60, CGFloat(instructions.count / 3)), 150))
-                                    .scrollContentBackground(.hidden)
-                                    .background(Color.clear)
+                                ZStack(alignment: .topLeading) {
+                                    // Placeholder text
+                                    if instructions.isEmpty {
+                                        Text("Describe how to perform this exercise...")
+                                            .foregroundColor(.gray.opacity(0.7))
+                                            .padding(.top, 12)
+                                            .padding(.leading, 5)
+                                    }
+                                    
+                                    // Actual text editor
+                                    TextEditor(text: $instructions)
+                                        .foregroundColor(.white)
+                                        .focused($focusedField, equals: .instructions)
+                                        .frame(minHeight: instructions.isEmpty ? 60 : min(max(60, CGFloat(instructions.count / 3)), 150))
+                                        .scrollContentBackground(.hidden)
+                                        .background(Color.clear)
+                                }
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(.systemGray6).opacity(0.15))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
                             }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.systemGray6).opacity(0.15))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
+                            .opacity(animateFields ? 1 : 0)
+                            .offset(y: animateFields ? 0 : 10)
                         }
-                        .opacity(animateFields ? 1 : 0)
-                        .offset(y: animateFields ? 0 : 10)
+                        .padding(.horizontal)
+                        
+                        // Muscle groups section - accordion style
+                        collapsibleMuscleGroupSelector()
+                        
+                        // Extra padding to ensure content isn't hidden by save button
+                        Spacer(minLength: 100)
                     }
-                    .padding(.horizontal)
-                    
-                    // Muscle groups section - accordion style
-                    collapsibleMuscleGroupSelector()
-                    
-                    Spacer(minLength: 80)
+                    .padding(.top, 20)
                 }
-                .padding(.top, 20)
-                .padding(.bottom, 100)
-            }
-            
-            // Save button
-            VStack {
-                Spacer()
+                .simultaneousGesture(
+                    TapGesture().onEnded { _ in
+                        dismissKeyboard()
+                    }
+                )
                 
-                saveButton
+                // Dynamic Save/Select Button at bottom
+                dynamicActionButton
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 20)
+                    .padding(.top, 10)
+                    .background(Color.black.opacity(0.8))
             }
         }
         .onAppear {
@@ -220,13 +223,19 @@ struct NewExerciseView: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
-                    focusedField = nil
+                    dismissKeyboard()
                 }
             }
         }
     }
     
     // MARK: - Components
+    
+    // Helper function to dismiss keyboard
+    private func dismissKeyboard() {
+        focusedField = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
     
     // Section Header
     private func sectionHeader(_ title: String) -> some View {
@@ -322,6 +331,7 @@ struct NewExerciseView: View {
                                 expandedMuscleGroup = group.name
                             }
                         }
+                        dismissKeyboard()
                     }) {
                         HStack {
                             Image(systemName: group.icon)
@@ -350,15 +360,18 @@ struct NewExerciseView: View {
                         VStack(spacing: 0) {
                             ForEach(group.subregions, id: \.self) { subregion in
                                 Button(action: {
-                                    // Select this subregion
-                                    selectedMuscleSubregion = subregion
+                                    // Toggle selection instead of replacing
+                                    if selectedMuscleSubregions.contains(subregion) {
+                                        selectedMuscleSubregions.remove(subregion)
+                                    } else {
+                                        selectedMuscleSubregions.insert(subregion)
+                                    }
                                     
-                                    // Update the selected muscle groups set - we'll only have one selected
-                                    selectedMuscleGroups.removeAll()
-                                    selectedMuscleGroups.insert(subregion)
+                                    // Update the selected muscle groups set to match subregions
+                                    selectedMuscleGroups = selectedMuscleSubregions
                                     
                                     // Dismiss keyboard when selecting
-                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                    dismissKeyboard()
                                     updateSaveButtonState()
                                 }) {
                                     HStack {
@@ -366,11 +379,11 @@ struct NewExerciseView: View {
                                         
                                         Text(subregion)
                                             .font(.system(size: 16))
-                                            .foregroundColor(selectedMuscleSubregion == subregion ? .white : .gray)
+                                            .foregroundColor(selectedMuscleSubregions.contains(subregion) ? .white : .gray)
                                         
                                         Spacer()
                                         
-                                        if selectedMuscleSubregion == subregion {
+                                        if selectedMuscleSubregions.contains(subregion) {
                                             Image(systemName: "checkmark")
                                                 .font(.system(size: 14))
                                                 .foregroundColor(.blue)
@@ -378,7 +391,7 @@ struct NewExerciseView: View {
                                     }
                                     .padding(.vertical, 14)
                                     .padding(.horizontal)
-                                    .background(selectedMuscleSubregion == subregion ? Color.blue.opacity(0.2) : Color.black)
+                                    .background(selectedMuscleSubregions.contains(subregion) ? Color.blue.opacity(0.2) : Color.black)
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 
@@ -407,19 +420,16 @@ struct NewExerciseView: View {
         .offset(y: animateMuscleGroups ? 0 : 10)
     }
     
-    private var saveButton: some View {
-        Button(action: saveNewExercise) {
-            HStack {
-                Text("Save Exercise")
-                    .font(.system(size: 18, weight: .semibold))
-                
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 16, weight: .semibold))
+    // Dynamic button that changes from "Select a muscle" to "Save Exercise"
+    private var dynamicActionButton: some View {
+        Button(action: {
+            if canSave {
+                saveNewExercise()
             }
-            .foregroundColor(.white)
-            .frame(height: 56)
-            .frame(maxWidth: .infinity)
-            .background(
+        }) {
+            // Simple container with content
+            ZStack {
+                // Background
                 RoundedRectangle(cornerRadius: 16)
                     .fill(
                         canSave ?
@@ -434,20 +444,31 @@ struct NewExerciseView: View {
                             endPoint: .trailing
                         )
                     )
-            )
-            .overlay(
-                Group {
-                    if !canSave {
-                        Text("Select a muscle")
-                            .font(.system(size: 16))
-                            .foregroundColor(.gray)
+                    .shadow(color: canSave ? Color.blue.opacity(0.4) : Color.clear, radius: 8, x: 0, y: 4)
+                
+                // Button text that changes based on state
+                if canSave {
+                    // Save Exercise text with arrow
+                    HStack(spacing: 8) {
+                        Text("Save Exercise")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                        
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
                     }
+                } else {
+                    // Select a muscle text
+                    Text("Select a muscle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.gray)
                 }
-            )
-            .shadow(color: canSave ? Color.blue.opacity(0.4) : Color.clear, radius: 8, x: 0, y: 4)
-            .scaleEffect(saveButtonActive ? 1 : 0.95)
+            }
+            .frame(height: 56)
         }
         .disabled(!canSave)
+        .animation(.spring(response: 0.3), value: canSave)
     }
     
     // MARK: - Functions
@@ -475,13 +496,13 @@ struct NewExerciseView: View {
     private func saveNewExercise() {
         guard canSave else { return }
         
-        // Make sure we have a muscle subregion selected
-        guard let muscleSubregion = selectedMuscleSubregion else { return }
+        // Make sure we have muscle subregions selected
+        guard !selectedMuscleSubregions.isEmpty else { return }
         
         let newExercise = Exercise(
             name: name,
             category: category,
-            muscleGroups: [muscleSubregion], // Just use the single selected subregion
+            muscleGroups: Array(selectedMuscleSubregions), // Use all selected subregions
             instructions: instructions
         )
         
