@@ -98,6 +98,9 @@ struct ActiveWorkoutView: View {
                             onAddSet: {
                                 sessionManager.addSet(to: exercise)
                             },
+                            onDeleteSet: { setIndex in
+                                sessionManager.deleteSet(from: exercise, at: setIndex)
+                            },
                             onUpdateWeight: { setIndex, weight in
                                 sessionManager.updateWeight(for: exercise, setIndex: setIndex, weight: weight)
                             },
@@ -384,6 +387,7 @@ struct ExerciseCard: View {
     var exercise: WorkoutExercise
     var onSetComplete: (Int, Bool) -> Void
     var onAddSet: () -> Void
+    var onDeleteSet: (Int) -> Void // New: Delete set callback
     var onUpdateWeight: (Int, Double?) -> Void
     var onUpdateReps: (Int, Int?) -> Void
     var dataManager: DataManager
@@ -477,7 +481,8 @@ struct ExerciseCard: View {
                     },
                     focusedField: focusedField,
                     weightFieldId: "\(exerciseId)_weight_\(index)",
-                    repsFieldId: "\(exerciseId)_reps_\(index)"
+                    repsFieldId: "\(exerciseId)_reps_\(index)",
+                    onDelete: exercise.sets.count > 1 ? { onDeleteSet(index) } : nil // New: Pass delete callback if more than one set
                 )
                 
                 Divider()
@@ -485,20 +490,42 @@ struct ExerciseCard: View {
                     .padding(.horizontal, 20)
             }
             
-            // Add Set button
-            Button(action: onAddSet) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.blue)
-                    
-                    Text("Add Set")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.blue)
+            // Add/Remove Set buttons
+            HStack {
+                Button(action: onAddSet) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.blue)
+                        
+                        Text("Add Set")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(PlainButtonStyle())
+                
+                // New: Only show remove set button if there's more than one set
+                if exercise.sets.count > 1 {
+                    Button(action: {
+                        // Remove the last set
+                        onDeleteSet(exercise.sets.count - 1)
+                    }) {
+                        HStack {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.red)
+                            
+                            Text("Remove Set")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.red)
+                        }
+                        .padding(.vertical, 16)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
             }
-            .buttonStyle(PlainButtonStyle())
             .padding(.top, 8)
             .padding(.bottom, 16)
         }
@@ -539,6 +566,7 @@ struct DetailedSetRow: View {
     var focusedField: FocusState<String?>.Binding
     var weightFieldId: String
     var repsFieldId: String
+    var onDelete: (() -> Void)? // New: Optional delete callback
     
     // Local state for text fields with preset values
     @State private var weightText: String
@@ -547,7 +575,7 @@ struct DetailedSetRow: View {
     // Initialize properly
     init(setNumber: Int, lastTimeText: String, currentWeight: Double?, currentReps: Int?, isCompleted: Bool,
          onToggleComplete: @escaping (Bool) -> Void, onUpdateWeight: @escaping (Double?) -> Void, onUpdateReps: @escaping (Int?) -> Void,
-         focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String) {
+         focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String, onDelete: (() -> Void)? = nil) {
         
         self.setNumber = setNumber
         self.lastTimeText = lastTimeText
@@ -560,6 +588,7 @@ struct DetailedSetRow: View {
         self.focusedField = focusedField
         self.weightFieldId = weightFieldId
         self.repsFieldId = repsFieldId
+        self.onDelete = onDelete  // New: Store delete callback
         
         // Initialize the text fields with current values
         _weightText = State(initialValue: currentWeight != nil ? String(format: "%.1f", currentWeight!) : "")
@@ -664,6 +693,22 @@ struct DetailedSetRow: View {
             .frame(width: 60, alignment: .center)
         }
         .padding(.vertical, 8)
+        // New: Add context menu for delete option
+        .contextMenu {
+            if let onDelete = onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete Set", systemImage: "trash")
+                }
+            }
+        }
+        // New: Add swipe actions for delete
+        .swipeActions(edge: .trailing) {
+            if let onDelete = onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
     }
 }
 

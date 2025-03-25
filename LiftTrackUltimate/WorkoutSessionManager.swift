@@ -178,6 +178,19 @@ class WorkoutSessionManager: ObservableObject {
         }
     }
     
+    /// Delete a set from an exercise
+    func deleteSet(from exercise: WorkoutExercise, at setIndex: Int) {
+        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
+           setIndex < exercises[exerciseIndex].sets.count,
+           exercises[exerciseIndex].sets.count > 1 { // Ensure we don't delete the last set
+            // Remove the set at the specified index
+            exercises[exerciseIndex].sets.remove(at: setIndex)
+            
+            // Notify observers
+            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+        }
+    }
+    
     /// Toggle completion status of a set
     func toggleSetCompletion(for exercise: WorkoutExercise, setIndex: Int, isComplete: Bool) {
         if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
