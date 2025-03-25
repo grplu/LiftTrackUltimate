@@ -4,30 +4,23 @@ struct ActiveWorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
+    // Reference to the WorkoutSessionManager
+    @ObservedObject private var sessionManager = WorkoutSessionManager.shared
+    
     var template: WorkoutTemplate?
     var onEnd: () -> Void
-    
-    @State private var workoutName: String
-    @State private var exercises: [WorkoutExercise] = []
-    @State private var startTime = Date()
-    @State private var elapsedTime: TimeInterval = 0
-    @State private var timer: Timer? = nil
-    @State private var showingFinishAlert = false
-    @State private var showingExerciseSelection = false
-    @State private var heartRate: Int = Int.random(in: 65...85) // Mock heart rate
-    @State private var isTimerPaused: Bool = false
-    @State private var showingCompletionAnimation = false
     
     // For keyboard dismissal
     @FocusState private var focusedField: String?
     
-    // Timer for heart rate simulation
-    @State private var heartRateTimer: Timer? = nil
+    // Local state for UI elements
+    @State private var showingFinishAlert = false
+    @State private var showingExerciseSelection = false
+    @State private var showingCompletionAnimation = false
     
     init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
         self.template = template
         self.onEnd = onEnd
-        _workoutName = State(initialValue: template?.name ?? "Quick Workout")
     }
     
     var body: some View {
@@ -52,8 +45,6 @@ struct ActiveWorkoutView: View {
                         }
                         
                         Spacer()
-                        
-                        // Removed the three dots menu button
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -61,7 +52,7 @@ struct ActiveWorkoutView: View {
                     // Workout header
                     VStack(spacing: 16) {
                         // Editable workout name
-                        TextField("Workout Name", text: $workoutName)
+                        TextField("Workout Name", text: $sessionManager.workoutName)
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
@@ -72,18 +63,18 @@ struct ActiveWorkoutView: View {
                         HStack(spacing: 20) {
                             // Timer display
                             HStack {
-                                TimerDisplay(elapsedTime: elapsedTime)
+                                TimerDisplay(elapsedTime: sessionManager.elapsedTime)
                                 
                                 // Play/pause button
                                 Button(action: {
-                                    toggleTimerPause()
+                                    sessionManager.togglePause()
                                 }) {
                                     ZStack {
                                         Circle()
                                             .fill(Color.blue.opacity(0.2))
                                             .frame(width: 50, height: 50)
                                         
-                                        Image(systemName: isTimerPaused ? "play.fill" : "pause.fill")
+                                        Image(systemName: sessionManager.isTimerPaused ? "play.fill" : "pause.fill")
                                             .font(.system(size: 20))
                                             .foregroundColor(.blue)
                                     }
@@ -91,27 +82,27 @@ struct ActiveWorkoutView: View {
                             }
                             
                             // Heart rate display
-                            HeartRateDisplay(heartRate: heartRate)
+                            HeartRateDisplay(heartRate: sessionManager.heartRate)
                         }
                         .padding(.vertical, 8)
                     }
                     .padding(.horizontal)
                     
                     // Exercise cards - always expanded
-                    ForEach(exercises) { exercise in
+                    ForEach(sessionManager.exercises) { exercise in
                         ExerciseCard(
                             exercise: exercise,
                             onSetComplete: { setIndex, isComplete in
-                                toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
+                                sessionManager.toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
                             },
                             onAddSet: {
-                                addSet(to: exercise)
+                                sessionManager.addSet(to: exercise)
                             },
                             onUpdateWeight: { setIndex, weight in
-                                updateWeight(for: exercise, setIndex: setIndex, weight: weight)
+                                sessionManager.updateWeight(for: exercise, setIndex: setIndex, weight: weight)
                             },
                             onUpdateReps: { setIndex, reps in
-                                updateReps(for: exercise, setIndex: setIndex, reps: reps)
+                                sessionManager.updateReps(for: exercise, setIndex: setIndex, reps: reps)
                             },
                             dataManager: dataManager,
                             focusedField: $focusedField,
@@ -239,6 +230,7 @@ struct ActiveWorkoutView: View {
                     // Discard button with destructive styling
                     Button(action: {
                         showingFinishAlert = false
+                        sessionManager.cancelWorkout()
                         onEnd()
                         dismiss()
                     }) {
@@ -267,19 +259,31 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showingExerciseSelection) {
             ExerciseSelectionView { exercise in
-                addExercise(exercise)
+                sessionManager.addExercise(exercise)
             }
             .environmentObject(dataManager)
         }
         .onAppear {
             UITextField.appearance().tintColor = .white // Set cursor color to white
-            initializeWorkout()
-            startTimer()
-            startHeartRateSimulation()
+            
+            // Start new workout session if needed
+            if !sessionManager.isWorkoutActive {
+                sessionManager.startWorkout(template: template)
+            }
+            
+            // Set up completion notification observer
+            NotificationCenter.default.addObserver(
+                forName: .workoutSessionCompleted,
+                object: nil,
+                queue: .main
+            ) { [self] _ in
+                onEnd()
+                dismiss()
+            }
         }
         .onDisappear {
-            stopTimer()
-            stopHeartRateSimulation()
+            // Remove the notification observer
+            NotificationCenter.default.removeObserver(self, name: .workoutSessionCompleted, object: nil)
         }
     }
     
@@ -288,149 +292,21 @@ struct ActiveWorkoutView: View {
         focusedField = nil
     }
     
-    // Helper to initialize workout from template
-    private func initializeWorkout() {
-        guard let template = template else { return }
-        
-        // Create workout exercises from template
-        for templateExercise in template.exercises {
-            var exerciseSets: [ExerciseSet] = []
-            
-            for _ in 0..<templateExercise.targetSets {
-                // Use default reps if not set
-                let reps = templateExercise.targetReps ?? 10
-                
-                // Get last weight used for this exercise if available
-                let lastPerformance = dataManager.getLastPerformance(for: templateExercise.exercise)
-                let weight = lastPerformance?.lastUsedWeight
-                
-                // Create a new set with the values
-                let newSet = ExerciseSet(reps: reps, weight: weight)
-                exerciseSets.append(newSet)
-            }
-            
-            let workoutExercise = WorkoutExercise(exercise: templateExercise.exercise, sets: exerciseSets)
-            exercises.append(workoutExercise)
-        }
-    }
-    
-    // Timer functions
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if !isTimerPaused {
-                elapsedTime += 1.0
-            }
-        }
-    }
-    
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-    
-    private func toggleTimerPause() {
-        isTimerPaused.toggle()
-    }
-    
-    // Heart rate simulation
-    private func startHeartRateSimulation() {
-        heartRateTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-            // Simulate slight heart rate changes
-            heartRate = max(60, min(180, heartRate + Int.random(in: -3...5)))
-        }
-    }
-    
-    private func stopHeartRateSimulation() {
-        heartRateTimer?.invalidate()
-        heartRateTimer = nil
-    }
-    
-    // Exercise management functions
-    private func addExercise(_ exercise: Exercise) {
-        // Default to 3 sets of 10 reps
-        let sets = [
-            ExerciseSet(reps: 10, weight: nil),
-            ExerciseSet(reps: 10, weight: nil),
-            ExerciseSet(reps: 10, weight: nil)
-        ]
-        
-        let workoutExercise = WorkoutExercise(exercise: exercise, sets: sets)
-        exercises.append(workoutExercise)
-    }
-    
-    private func addSet(to exercise: WorkoutExercise) {
-        if let index = exercises.firstIndex(where: { $0.id == exercise.id }) {
-            // Get the last set (if any)
-            let lastSet = exercises[index].sets.last
-            
-            // Create new set with simple parameters
-            let reps = lastSet?.reps ?? 10
-            let weight = lastSet?.weight
-            
-            // Create new set with correct parameter order
-            let newSet = ExerciseSet(reps: reps, weight: weight)
-            
-            exercises[index].sets.append(newSet)
-        }
-    }
-    
-    private func toggleSetCompletion(for exercise: WorkoutExercise, setIndex: Int, isComplete: Bool) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].completed = isComplete
-        }
-    }
-    
-    private func updateWeight(for exercise: WorkoutExercise, setIndex: Int, weight: Double?) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].weight = weight
-        }
-    }
-    
-    private func updateReps(for exercise: WorkoutExercise, setIndex: Int, reps: Int?) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].reps = reps
-        }
-    }
-    
+    // Complete the workout with animation
     private func completeWorkout() {
-        // Create and save the completed workout
-        let completedWorkout = AppWorkout(
-            id: UUID(),
-            name: workoutName,
-            date: startTime,
-            duration: elapsedTime,
-            exercises: exercises
-        )
-        
-        dataManager.saveWorkout(completedWorkout)
-        
-        // Save performance data for each exercise
-        for exercise in exercises {
-            dataManager.saveExercisePerformance(from: exercise)
-        }
-        
         // Show completion animation
         showingCompletionAnimation = true
         
-        // Short delay to allow animation to play, then dismiss
+        // Short delay to allow animation to play, then complete the workout
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             showingCompletionAnimation = false
             
-            // After animation is hidden, dismiss the view
+            // After animation is hidden, complete the workout
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                onEnd()
-                dismiss()
+                sessionManager.completeWorkout(dataManager: dataManager)
+                // View will be dismissed by notification observer
             }
         }
-    }
-    
-    private func cancelWorkout() {
-        // Discard the workout without saving
-        onEnd()
-        dismiss()
     }
 }
 
@@ -502,49 +378,6 @@ struct WorkoutCompletionAnimation: View {
 }
 
 // MARK: - Supporting Views
-
-struct TimerDisplay: View {
-    var elapsedTime: TimeInterval
-    
-    var formattedTime: String {
-        let hours = Int(elapsedTime) / 3600
-        let minutes = (Int(elapsedTime) % 3600) / 60
-        let seconds = Int(elapsedTime) % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-    }
-    
-    var body: some View {
-        Text(formattedTime)
-            .font(.system(size: 32, weight: .semibold, design: .monospaced))
-            .foregroundColor(.white)
-    }
-}
-
-struct HeartRateDisplay: View {
-    var heartRate: Int
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "heart.fill")
-                .foregroundColor(.red)
-                .font(.system(size: 18))
-            
-            Text("\(heartRate)")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
-            
-            Text("BPM")
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.red.opacity(0.15))
-        )
-    }
-}
 
 // Always expanded exercise card
 struct ExerciseCard: View {
@@ -831,5 +664,48 @@ struct DetailedSetRow: View {
             .frame(width: 60, alignment: .center)
         }
         .padding(.vertical, 8)
+    }
+}
+
+struct TimerDisplay: View {
+    var elapsedTime: TimeInterval
+    
+    var formattedTime: String {
+        let hours = Int(elapsedTime) / 3600
+        let minutes = (Int(elapsedTime) % 3600) / 60
+        let seconds = Int(elapsedTime) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
+    var body: some View {
+        Text(formattedTime)
+            .font(.system(size: 32, weight: .semibold, design: .monospaced))
+            .foregroundColor(.white)
+    }
+}
+
+struct HeartRateDisplay: View {
+    var heartRate: Int
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "heart.fill")
+                .foregroundColor(.red)
+                .font(.system(size: 18))
+            
+            Text("\(heartRate)")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+            
+            Text("BPM")
+                .font(.system(size: 14))
+                .foregroundColor(.gray)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.red.opacity(0.15))
+        )
     }
 }
