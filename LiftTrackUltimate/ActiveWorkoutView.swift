@@ -238,7 +238,9 @@ struct ActiveWorkoutView: View {
                     
                     // Discard button with destructive styling
                     Button(action: {
-                        cancelWorkout()
+                        showingFinishAlert = false
+                        onEnd()
+                        dismiss()
                     }) {
                         Text("Discard Workout")
                             .font(.system(size: 17, weight: .semibold))
