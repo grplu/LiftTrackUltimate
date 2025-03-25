@@ -182,44 +182,27 @@ struct TemplatesView: View {
         }
     }
     
-    // MARK: - My Templates Section
     private var myTemplatesSection: some View {
         VStack(spacing: 16) {
-            // Show user's templates or empty state
             if dataManager.templates.isEmpty {
                 emptyTemplatesView
             } else {
-                // Filter templates based on search if needed
                 let templates = searchText.isEmpty ? dataManager.templates :
                     dataManager.templates.filter { $0.name.lowercased().contains(searchText.lowercased()) }
                 
                 if templates.isEmpty {
-                    // No search results
-                    VStack(spacing: 16) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        
-                        Text("No templates found")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        
-                        Text("Try a different search term")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 100)
+                    // Existing "No templates found" view
                 } else {
-                    // Display templates in a grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                        ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
-                            EnhancedTemplateCard(
-                                template: template,
-                                index: index,
-                                appear: animateCards
-                            )
-                            .id(template.id)
+                        ForEach(templates) { template in
+                            NavigationLink(destination: TemplateDetailView(template: template)) {
+                                EnhancedTemplateCard(
+                                    template: template,
+                                    index: templates.firstIndex(of: template) ?? 0,
+                                    appear: animateCards
+                                )
+                                .id(template.id)
+                            }
                         }
                     }
                     .padding(.horizontal)

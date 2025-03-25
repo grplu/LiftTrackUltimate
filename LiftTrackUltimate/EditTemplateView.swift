@@ -4,16 +4,20 @@ struct EditTemplateView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
-    var originalTemplate: WorkoutTemplate
+    // Track the original template (if editing)
+    var originalTemplate: WorkoutTemplate?
     
     @State private var templateName: String
     @State private var selectedExercises: [TemplateExercise]
     @State private var showingExerciseSelection = false
     
-    init(template: WorkoutTemplate) {
+    // Flexible initializer for both new and existing templates
+    init(template: WorkoutTemplate? = nil) {
         self.originalTemplate = template
-        _templateName = State(initialValue: template.name)
-        _selectedExercises = State(initialValue: template.exercises)
+        
+        // Use existing template details or defaults
+        _templateName = State(initialValue: template?.name ?? "New Template")
+        _selectedExercises = State(initialValue: template?.exercises ?? [])
     }
     
     var body: some View {
@@ -84,15 +88,16 @@ struct EditTemplateView: View {
                             .padding(.vertical, 30)
                         } else {
                             // List of selected exercises
-                            ForEach(selectedExercises) { exercise in
+                            ForEach(selectedExercises.indices, id: \.self) { index in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(exercise.exercise.name)
+                                        Text(selectedExercises[index].exercise.name)
                                             .font(.headline)
                                             .foregroundColor(.white)
                                         
-                                        let repsText = exercise.targetReps != nil ? "\(exercise.targetReps!)" : "0"
-                                        Text("\(exercise.targetSets) sets × \(repsText) reps")
+                                        let repsText = selectedExercises[index].targetReps != nil ?
+                                            "\(selectedExercises[index].targetReps!)" : "0"
+                                        Text("\(selectedExercises[index].targetSets) sets × \(repsText) reps")
                                             .font(.subheadline)
                                             .foregroundColor(.gray)
                                     }
@@ -101,9 +106,7 @@ struct EditTemplateView: View {
                                     
                                     Button(action: {
                                         // Remove exercise from selection
-                                        if let index = selectedExercises.firstIndex(where: { $0.id == exercise.id }) {
-                                            selectedExercises.remove(at: index)
-                                        }
+                                        selectedExercises.remove(at: index)
                                     }) {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundColor(.red)
@@ -120,7 +123,7 @@ struct EditTemplateView: View {
                 }
                 .padding()
             }
-            .navigationBarTitle("Edit Template", displayMode: .inline)
+            .navigationBarTitle(originalTemplate == nil ? "Create Template" : "Edit Template", displayMode: .inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
@@ -131,11 +134,19 @@ struct EditTemplateView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         let updatedTemplate = WorkoutTemplate(
-                            id: originalTemplate.id,
+                            id: originalTemplate?.id ?? UUID(),
                             name: templateName.isEmpty ? "New Template" : templateName,
                             exercises: selectedExercises
                         )
-                        onSave(updatedTemplate)
+                        
+                        // Determine if it's a new or existing template
+                        if originalTemplate == nil {
+                            dataManager.saveTemplate(updatedTemplate)
+                        } else {
+                            dataManager.updateTemplate(updatedTemplate)
+                        }
+                        
+                        dismiss()
                     }
                     .disabled(selectedExercises.isEmpty)
                 }
@@ -165,10 +176,5 @@ struct EditTemplateView: View {
         )
         
         selectedExercises.append(templateExercise)
-    }
-    
-    private func onSave(_ template: WorkoutTemplate) {
-        dataManager.updateTemplate(template)
-        dismiss()
     }
 }

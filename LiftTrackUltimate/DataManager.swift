@@ -197,15 +197,16 @@ class DataManager: ObservableObject {
         let setWeights = completedSets.map { $0.weight }
         let setReps = completedSets.map { $0.reps }
         
-        // Calculate averages for progress tracking
+        // CHANGED: Find maximum weight instead of average
+        let maxWeight = setWeights.compactMap { $0 }.max()
+        
+        // Keep average reps for statistics purposes
         let avgReps = setReps.compactMap { $0 }.isEmpty ? nil :
                      Int(Double(setReps.compactMap { $0 }.reduce(0, +)) / Double(setReps.compactMap { $0 }.count))
-        let avgWeight = setWeights.compactMap { $0 }.isEmpty ? nil :
-                       setWeights.compactMap { $0 }.reduce(0, +) / Double(setWeights.compactMap { $0 }.count)
         
         // Get the last reps and weight (from the last set)
         let lastUsedReps = completedSets.last?.reps
-        let lastUsedWeight = completedSets.last?.weight
+        let lastUsedWeight = maxWeight // CHANGED: Use max weight instead of last weight
         
         // Create or update performance object
         var performance: ExercisePerformance
@@ -215,7 +216,7 @@ class DataManager: ObservableObject {
             performance = exercisePerformances[existingIndex]
             performance.date = Date()
             performance.avgReps = avgReps
-            performance.avgWeight = avgWeight
+            performance.avgWeight = maxWeight // CHANGED: Use max weight
             performance.totalSets = completedSets.count
             performance.lastUsedReps = lastUsedReps
             performance.lastUsedWeight = lastUsedWeight
@@ -228,7 +229,7 @@ class DataManager: ObservableObject {
             performance = ExercisePerformance(
                 exerciseId: exerciseId,
                 reps: avgReps,
-                weight: avgWeight,
+                weight: maxWeight, // CHANGED: Use max weight
                 sets: completedSets.count
             )
             performance.setWeights = setWeights

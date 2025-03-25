@@ -24,7 +24,7 @@ struct ContentView: View {
             
             WorkoutView()
                 .tabItem {
-                    Label("Workout", systemImage: "figure.run")
+                    Label("Workout", systemImage: "figure.strengthtraining.traditional")
                 }
                 .tag(2)
             

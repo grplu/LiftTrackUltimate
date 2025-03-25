@@ -39,9 +39,14 @@ class WorkoutSessionManager: ObservableObject {
     // MARK: - Public Methods
     
     /// Start a new workout session
-    func startWorkout(name: String = "Quick Workout", template: WorkoutTemplate? = nil) {
+    func startWorkout(template: WorkoutTemplate? = nil) {
         // Reset and initialize workout state
-        workoutName = name
+        if let template = template {
+            workoutName = template.name
+        } else {
+            workoutName = "Quick Workout"
+        }
+        
         startTime = Date()
         elapsedTime = 0
         isTimerPaused = false
@@ -217,15 +222,17 @@ class WorkoutSessionManager: ObservableObject {
         for templateExercise in template.exercises {
             var exerciseSets: [ExerciseSet] = []
             
-            for _ in 0..<templateExercise.targetSets {
-                // Use default reps if not set
-                let reps = templateExercise.targetReps ?? 10
+            for i in 0..<templateExercise.targetSets {
+                // CHANGED: Get specific set data from the DataManager instead of just the default values
+                let dataManager = DataManager.shared
                 
-                // Get last weight used for this exercise if available
-                let lastPerformance = DataManager.shared.getLastPerformance(for: templateExercise.exercise)
-                let weight = lastPerformance?.lastUsedWeight
+                // Try to get the specific reps used for this set in the past
+                let reps = dataManager.getSetReps(for: templateExercise.exercise, setIndex: i) ?? templateExercise.targetReps ?? 10
                 
-                // Create a new set with the values
+                // Try to get the specific weight used for this set in the past
+                let weight = dataManager.getSetWeight(for: templateExercise.exercise, setIndex: i)
+                
+                // Create a new set with historical values (or defaults if not available)
                 let newSet = ExerciseSet(reps: reps, weight: weight)
                 exerciseSets.append(newSet)
             }
