@@ -3,6 +3,7 @@ import SwiftUI
 struct EnhancedTemplateCreationView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
+    var existingTemplate: WorkoutTemplate? // Added to support editing
     var onSave: (WorkoutTemplate) -> Void
     
     @State private var templateName = ""
@@ -14,6 +15,27 @@ struct EnhancedTemplateCreationView: View {
     @State private var showingExerciseSelection = false
     
     let categories = ["Strength", "Hypertrophy", "HIIT", "Cardio", "Calisthenics", "Full Body", "Upper Body", "Lower Body"]
+    
+    // Initialize with existing template data if editing
+    init(existingTemplate: WorkoutTemplate? = nil, onSave: @escaping (WorkoutTemplate) -> Void) {
+        self.existingTemplate = existingTemplate
+        self.onSave = onSave
+        
+        // Initialize state variables with existing template data if available
+        if let template = existingTemplate {
+            _templateName = State(initialValue: template.name)
+            _templateDescription = State(initialValue: template.description ?? "")
+            _selectedExercises = State(initialValue: template.exercises)
+            
+            // Initialize other fields with defaults if editing an existing template
+            _selectedCategory = State(initialValue: "Strength") // Default category
+            _isPublic = State(initialValue: false) // Default to private
+        } else {
+            _templateName = State(initialValue: "")
+            _templateDescription = State(initialValue: "")
+            _selectedExercises = State(initialValue: [])
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -65,7 +87,7 @@ struct EnhancedTemplateCreationView: View {
                 }
                 
                 ToolbarItem(placement: .principal) {
-                    Text(stepTitle)
+                    Text(existingTemplate != nil ? "Edit Template" : stepTitle)
                         .font(.headline)
                         .foregroundColor(.white)
                 }
@@ -473,331 +495,18 @@ struct EnhancedTemplateCreationView: View {
     }
     
     private func saveTemplate() {
-        // Create new template
-        let newTemplate = WorkoutTemplate(
-            id: UUID(),
+        // Create new template or update existing one
+        let template = WorkoutTemplate(
+            id: existingTemplate?.id ?? UUID(),
             name: templateName,
+            description: templateDescription.isEmpty ? nil : templateDescription,
             exercises: selectedExercises
         )
         
         // Save using callback
-        onSave(newTemplate)
+        onSave(template)
         
         // Dismiss the view
         dismiss()
-    }
-}
-
-// MARK: - Helper Views
-
-struct ProgressSteps: View {
-    var currentStep: Int
-    
-    var body: some View {
-        HStack {
-            ForEach(0..<3) { step in
-                Capsule()
-                    .fill(step <= currentStep ? Color.blue : Color.gray.opacity(0.3))
-                    .frame(height: 4)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.horizontal)
-    }
-}
-
-struct ExerciseRow: View {
-    var exercise: TemplateExercise
-    var index: Int
-    var onRemove: () -> Void
-    var onEditSets: (Int) -> Void
-    var onEditReps: (Int) -> Void
-    
-    @State private var isExpanded = false
-    @State private var isNewlyAdded = true
-    @State private var animateGlow = false
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Exercise header
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                    isExpanded.toggle()
-                }
-            }) {
-                HStack(spacing: 16) {
-                    // Exercise number indicator with circle background
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.blue.opacity(0.7),
-                                        Color.blue.opacity(0.5)
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 36, height: 36)
-                        
-                        Text("\(index + 1)")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(exercise.exercise.name)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                        
-                        // Handle optional safely
-                        let repsText = exercise.targetReps != nil ? "\(exercise.targetReps!)" : "0"
-                        HStack(spacing: 12) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chart.bar.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.blue.opacity(0.8))
-                                
-                                Text("\(exercise.targetSets) sets")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            HStack(spacing: 4) {
-                                Image(systemName: "repeat")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.green.opacity(0.8))
-                                
-                                Text("\(repsText) reps")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Expand/Collapse button
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.gray)
-                        .frame(width: 28, height: 28)
-                        .background(Color.gray.opacity(0.2))
-                        .clipShape(Circle())
-                    
-                    // Remove button
-                    Button(action: {
-                        withAnimation(.spring()) {
-                            onRemove()
-                        }
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.red.opacity(0.7))
-                            .clipShape(Circle())
-                    }
-                }
-                .padding(.vertical, 16)
-                .padding(.horizontal, 16)
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            // Expanded content (sets & reps)
-            if isExpanded {
-                VStack(spacing: 24) {
-                    Divider()
-                        .background(Color.gray.opacity(0.3))
-                        .padding(.horizontal)
-                    
-                    // Sets selector
-                    HStack {
-                        HStack(spacing: 10) {
-                            Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(.blue)
-                            
-                            Text("Sets")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                        
-                        Spacer()
-                        
-                        // Modern number stepper
-                        ModernNumberStepper(
-                            value: exercise.targetSets,
-                            range: 1...10,
-                            onChanged: onEditSets,
-                            accentColor: .blue
-                        )
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // Reps selector - safely handle optional
-                    HStack {
-                        HStack(spacing: 10) {
-                            Image(systemName: "repeat")
-                                .font(.system(size: 16))
-                                .foregroundColor(.green)
-                            
-                            Text("Reps")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                        
-                        Spacer()
-                        
-                        // Modern number stepper with safe unwrapping
-                        ModernNumberStepper(
-                            value: exercise.targetReps ?? 0, // Default to 0 if nil
-                            range: 1...50,
-                            onChanged: onEditReps,
-                            accentColor: .green
-                        )
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    Divider()
-                        .background(Color.gray.opacity(0.3))
-                        .padding(.horizontal)
-                    
-                    // Optional instructions button
-                    Button(action: {
-                        // Show instructions in a separate sheet or popup
-                    }) {
-                        HStack {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 14))
-                            
-                            Text("View Exercise Instructions")
-                                .font(.subheadline)
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.vertical, 10)
-                    }
-                }
-                .padding(.vertical, 8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(.systemGray6).opacity(0.25),
-                            Color(.systemGray6).opacity(0.2)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            animateGlow ? Color.blue.opacity(0.6) : Color.white.opacity(0.1),
-                            lineWidth: animateGlow ? 2 : 1
-                        )
-                )
-                .shadow(
-                    color: animateGlow ? Color.blue.opacity(0.3) : Color.black.opacity(0.1),
-                    radius: animateGlow ? 8 : 4
-                )
-        )
-        .scaleEffect(isNewlyAdded ? 0.98 : 1.0)
-        .onAppear {
-            // Entrance animation
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                isNewlyAdded = false
-            }
-            
-            // Highlight glow effect for newly added exercises
-            withAnimation(.easeInOut(duration: 0.8).repeatCount(1, autoreverses: true)) {
-                animateGlow = true
-            }
-            
-            // Reset animations after some time
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
-                    animateGlow = false
-                }
-            }
-        }
-    }
-}
-
-struct ModernNumberStepper: View {
-    var value: Int
-    var range: ClosedRange<Int>
-    var onChanged: (Int) -> Void
-    var accentColor: Color
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            // Decrement button
-            Button(action: {
-                if value > range.lowerBound {
-                    onChanged(value - 1)
-                    
-                    // Haptic feedback
-                    let impactLight = UIImpactFeedbackGenerator(style: .light)
-                    impactLight.impactOccurred()
-                }
-            }) {
-                Image(systemName: "minus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(
-                        Circle()
-                            .fill(value <= range.lowerBound ? Color.gray.opacity(0.2) : accentColor.opacity(0.7))
-                    )
-            }
-            .buttonStyle(ScaleButtonStyle())
-            .disabled(value <= range.lowerBound)
-            .opacity(value <= range.lowerBound ? 0.5 : 1)
-            
-            // Value display
-            Text("\(value)")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
-                .frame(minWidth: 40, alignment: .center)
-            
-            // Increment button
-            Button(action: {
-                if value < range.upperBound {
-                    onChanged(value + 1)
-                    
-                    // Haptic feedback
-                    let impactLight = UIImpactFeedbackGenerator(style: .light)
-                    impactLight.impactOccurred()
-                }
-            }) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(
-                        Circle()
-                            .fill(value >= range.upperBound ? Color.gray.opacity(0.2) : accentColor.opacity(0.7))
-                    )
-            }
-            .buttonStyle(ScaleButtonStyle())
-            .disabled(value >= range.upperBound)
-            .opacity(value >= range.upperBound ? 0.5 : 1)
-        }
-    }
-}
-
-// Button style with scale animation
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1)
-            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }

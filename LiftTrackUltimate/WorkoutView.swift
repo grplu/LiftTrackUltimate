@@ -8,6 +8,7 @@ struct WorkoutView: View {
     @State private var templateToDelete: WorkoutTemplate?
     @State private var showingEditSheet = false
     @State private var templateToEdit: WorkoutTemplate?
+    @State private var showingCreateTemplateSheet = false // New state for template creation
     
     var body: some View {
         NavigationView {
@@ -49,9 +50,8 @@ struct WorkoutView: View {
                             
                             // Add a "Create New Template" card
                             Button(action: {
-                                // Show create template sheet
-                                templateToEdit = nil
-                                showingEditSheet = true
+                                // Show enhanced template creation view
+                                showingCreateTemplateSheet = true
                             }) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
@@ -120,11 +120,15 @@ struct WorkoutView: View {
                 if let template = templateToEdit {
                     EditTemplateView(template: template)
                         .environmentObject(dataManager)
-                } else {
-                    // Create new template
-                    EditTemplateView(template: WorkoutTemplate(name: "New Template", exercises: []))
-                        .environmentObject(dataManager)
                 }
+            }
+            // Use the enhanced template creation view instead of EditTemplateView for new templates
+            .sheet(isPresented: $showingCreateTemplateSheet) {
+                EnhancedTemplateCreationView(onSave: { newTemplate in
+                    // Save the template to the data manager
+                    dataManager.saveTemplate(newTemplate)
+                })
+                .environmentObject(dataManager)
             }
         }
     }
