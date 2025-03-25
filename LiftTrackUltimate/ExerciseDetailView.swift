@@ -5,11 +5,35 @@ struct ExerciseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingEditView = false
     @State private var showingDeleteAlert = false
+    @State private var showingCustomDeleteConfirmation = false
     @State private var selectedTab = 0
     @State private var animateContent = false
     @State private var isFavorite = false
     
     var exercise: Exercise
+    
+    // Check if this is a custom exercise that can be deleted
+    private var isCustomExercise: Bool {
+        // Since there's no defaultExercises property in DataManager,
+        // we'll check if the exercise is one of the sample exercises
+        
+        // Define names of sample exercises created in loadSampleData
+        // These are considered "default" and not deletable
+        let defaultExerciseNames = [
+            "Bench Press", "Incline Bench Press", "Decline Bench Press", "Dumbbell Flyes",
+            "Cable Crossover", "Push-Ups", "Deadlift", "Pull-Up", "Bent Over Row",
+            "Lat Pulldown", "T-Bar Row", "Face Pull", "Overhead Press", "Lateral Raise",
+            "Front Raise", "Rear Delt Flye", "Arnold Press", "Bicep Curl", "Hammer Curl",
+            "Tricep Pushdown", "Tricep Extension", "Preacher Curl", "Skull Crusher",
+            "Squat", "Leg Press", "Leg Extension", "Leg Curl", "Calf Raise", "Lunges",
+            "Romanian Deadlift", "Hip Thrust", "Plank", "Crunch", "Leg Raise",
+            "Russian Twist", "Side Plank", "Mountain Climber", "Running", "Cycling",
+            "Rowing", "Jumping Rope", "Elliptical", "Stair Climber"
+        ]
+        
+        // Check if the current exercise's name is in the default list
+        return !defaultExerciseNames.contains(exercise.name)
+    }
     
     // Tab titles
     private let tabs = ["Overview", "History", "Records"]
@@ -28,7 +52,8 @@ struct ExerciseDetailView: View {
             animateContent: $animateContent,
             isFavorite: $isFavorite,
             showingEditView: $showingEditView,
-            showingDeleteAlert: $showingDeleteAlert,
+            showingCustomDeleteConfirmation: $showingCustomDeleteConfirmation,
+            isCustomExercise: isCustomExercise,
             dismiss: dismiss,
             dataManager: dataManager
         )
@@ -36,20 +61,24 @@ struct ExerciseDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
+                HStack(spacing: 16) {
+                    // Edit button
                     Button(action: {
                         showingEditView = true
                     }) {
-                        Label("Edit Exercise", systemImage: "pencil")
+                        Image(systemName: "pencil")
+                            .foregroundColor(.blue)
                     }
                     
-                    Button(role: .destructive, action: {
-                        showingDeleteAlert = true
-                    }) {
-                        Label("Delete Exercise", systemImage: "trash")
+                    // Delete button - only show for custom exercises
+                    if isCustomExercise {
+                        Button(action: {
+                            showingCustomDeleteConfirmation = true
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -64,17 +93,96 @@ struct ExerciseDetailView: View {
             }
             .environmentObject(dataManager)
         }
-        .alert("Delete Exercise", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                // Filter out this exercise
-                let updatedExercises = dataManager.exercises.filter { $0.id != exercise.id }
-                dataManager.updateExercises(updatedExercises)
-                dismiss()
+        .overlay(
+            Group {
+                if showingCustomDeleteConfirmation {
+                    ZStack {
+                        // Dimmed background
+                        Color.black.opacity(0.6)
+                            .edgesIgnoringSafeArea(.all)
+                            .onTapGesture {
+                                // Allow tapping outside to dismiss
+                                withAnimation {
+                                    showingCustomDeleteConfirmation = false
+                                }
+                            }
+                        
+                        // Alert container
+                        VStack(spacing: 0) {
+                            // Top part with warning content
+                            VStack(spacing: 16) {
+                                // Warning icon
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.red)
+                                    .padding(.top, 24)
+                                
+                                Text("Delete Exercise")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                Text("Are you sure you want to delete '\(exercise.name)'?")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                                
+                                Text("This action cannot be undone.")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.red)
+                                    .padding(.bottom, 20)
+                            }
+                            
+                            Divider()
+                                .background(Color.gray.opacity(0.5))
+                            
+                            // Bottom part with action buttons
+                            HStack(spacing: 0) {
+                                Button(action: {
+                                    withAnimation {
+                                        showingCustomDeleteConfirmation = false
+                                    }
+                                }) {
+                                    Text("Cancel")
+                                        .font(.system(size: 17))
+                                        .fontWeight(.regular)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                }
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.5))
+                                    .frame(height: 50)
+                                
+                                Button(action: {
+                                    // Filter out this exercise
+                                    let updatedExercises = dataManager.exercises.filter { $0.id != exercise.id }
+                                    dataManager.updateExercises(updatedExercises)
+                                    withAnimation {
+                                        showingCustomDeleteConfirmation = false
+                                    }
+                                    dismiss()
+                                }) {
+                                    Text("Delete")
+                                        .font(.system(size: 17))
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.red)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                }
+                            }
+                        }
+                        .background(Color(UIColor.systemBackground).opacity(0.95))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .frame(width: min(UIScreen.main.bounds.width - 50, 300))
+                        .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+                        .transition(.opacity.combined(with: .scale))
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: showingCustomDeleteConfirmation)
+                }
             }
-        } message: {
-            Text("Are you sure you want to delete this exercise? This action cannot be undone.")
-        }
+        )
         .onAppear {
             // Animate content in
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
@@ -83,6 +191,8 @@ struct ExerciseDetailView: View {
         }
     }
 }
+
+// We've integrated the custom alert directly in the view rather than as separate components
 
 // MARK: - Main Content View
 struct ExerciseDetailContent: View {
@@ -93,7 +203,8 @@ struct ExerciseDetailContent: View {
     @Binding var animateContent: Bool
     @Binding var isFavorite: Bool
     @Binding var showingEditView: Bool
-    @Binding var showingDeleteAlert: Bool
+    @Binding var showingCustomDeleteConfirmation: Bool
+    var isCustomExercise: Bool
     var dismiss: DismissAction
     var dataManager: DataManager
     
@@ -102,31 +213,58 @@ struct ExerciseDetailContent: View {
             // Background
             Color.black.edgesIgnoringSafeArea(.all)
             
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Hero section
-                    ExerciseHeroSection(
-                        exercise: exercise,
-                        performanceHistory: performanceHistory,
-                        animateContent: animateContent
-                    )
-                    
-                    // Tab selector
-                    TabSelector(
-                        tabs: tabs,
-                        selectedTab: $selectedTab,
-                        animateContent: animateContent
-                    )
-                    
-                    // Tab content
-                    TabContentView(
-                        selectedTab: selectedTab,
-                        exercise: exercise,
-                        dataManager: dataManager,
-                        animateContent: animateContent
-                    )
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Hero section
+                        ExerciseHeroSection(
+                            exercise: exercise,
+                            performanceHistory: performanceHistory,
+                            animateContent: animateContent
+                        )
+                        
+                        // Tab selector
+                        TabSelector(
+                            tabs: tabs,
+                            selectedTab: $selectedTab,
+                            animateContent: animateContent
+                        )
+                        
+                        // Tab content
+                        TabContentView(
+                            selectedTab: selectedTab,
+                            exercise: exercise,
+                            dataManager: dataManager,
+                            animateContent: animateContent
+                        )
+                    }
+                    .padding(.bottom, 50)
                 }
-                .padding(.bottom, 50)
+                
+                // Add Delete button at bottom for custom exercises
+                if isCustomExercise {
+                    Button(action: {
+                        showingCustomDeleteConfirmation = true
+                    }) {
+                        HStack {
+                            Image(systemName: "trash")
+                                .foregroundColor(.white)
+                            
+                            Text("Delete Exercise")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.red.opacity(0.7))
+                        )
+                        .padding(.horizontal)
+                        .padding(.bottom, 15)
+                    }
+                    .transition(.opacity)
+                }
             }
         }
     }
