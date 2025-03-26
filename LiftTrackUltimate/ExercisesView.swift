@@ -7,6 +7,7 @@ struct ExercisesView: View {
     @State private var selectedExercise: Exercise? = nil
     @State private var showingDetailView = false
     @State private var showingNewExerciseView = false
+    @State private var isLoadingExercise = false
     
     // Muscle group filters
     let muscleGroups = ["All", "Chest", "Back", "Shoulders", "Delts", "Arms", "Legs", "Core"]
@@ -72,7 +73,6 @@ struct ExercisesView: View {
     }
     
     var body: some View {
-        // REMOVED NavigationView - THIS IS THE KEY CHANGE
         ZStack {
             // Background color
             Color.black.edgesIgnoringSafeArea(.all)
@@ -144,7 +144,7 @@ struct ExercisesView: View {
                     .padding(.bottom, 12)
                 }
                 
-                // Exercise list with sections
+                // Exercise list with sections - LazyVStack for performance
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         let groupedExercises = groupExercisesByMuscle()
@@ -159,6 +159,7 @@ struct ExercisesView: View {
                                         selectedExercise = exercise
                                         showingDetailView = true
                                     }
+                                    
                                 )
                             }
                         }
@@ -177,6 +178,7 @@ struct ExercisesView: View {
                         Spacer().frame(height: 50)
                     }
                 }
+                .scrollIndicators(.hidden) // Hide scroll indicators for cleaner UI
             }
             
             // Floating Add Button
@@ -199,14 +201,34 @@ struct ExercisesView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingNewExerciseView) {
-            NewExerciseView()
-                .environmentObject(dataManager)
+        .sheet(isPresented: $showingDetailView) {
+            if let exercise = selectedExercise {
+                ZStack {
+                    // Black background to prevent flashing
+                    Color.black.edgesIgnoringSafeArea(.all)
+                    
+                    ExerciseDetailView(exercise: exercise)
+                        .environmentObject(dataManager)
+                }
+            }
         }
         .sheet(isPresented: $showingDetailView) {
             if let exercise = selectedExercise {
-                ExerciseDetailView(exercise: exercise)
-                    .environmentObject(dataManager)
+                ZStack {
+                    // Background
+                    Color.black.edgesIgnoringSafeArea(.all)
+                    
+                    if isLoadingExercise {
+                        // Show loading spinner
+                        LoadingView(exerciseName: exercise.name)
+                    } else {
+                        // Show the actual detail view once loaded
+                        ExerciseDetailView(exercise: exercise)
+                            .environmentObject(dataManager)
+                            .transition(.opacity)
+                            .animation(.easeInOut(duration: 0.3), value: isLoadingExercise)
+                    }
+                }
             }
         }
     }
@@ -235,6 +257,44 @@ struct ExercisesView: View {
 }
 
 // MARK: - Supporting Views
+
+// Loading View for Exercise Detail
+struct LoadingView: View {
+    var exerciseName: String
+    @State private var isAnimating = false
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // Animated spinner
+            ZStack {
+                Circle()
+                    .stroke(lineWidth: 4)
+                    .frame(width: 50, height: 50)
+                    .foregroundColor(Color.gray.opacity(0.3))
+                
+                Circle()
+                    .trim(from: 0, to: 0.7)
+                    .stroke(Color.blue, lineWidth: 4)
+                    .frame(width: 50, height: 50)
+                    .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
+                    .animation(
+                        Animation.linear(duration: 1)
+                            .repeatForever(autoreverses: false),
+                        value: isAnimating
+                    )
+            }
+            
+            Text("Loading \(exerciseName)...")
+                .font(.headline)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+        .onAppear {
+            isAnimating = true
+        }
+    }
+}
 
 // Muscle Group Button
 struct MuscleGroupButton: View {
@@ -288,7 +348,7 @@ struct MuscleGroupButton: View {
     }
 }
 
-// Muscle Group Section - fixed structure without expandedExerciseId
+// Muscle Group Section
 struct ExerciseMuscleGroupSection: View {
     var muscleGroup: String
     var exercises: [Exercise]
@@ -318,14 +378,13 @@ struct ExerciseMuscleGroupSection: View {
             Divider()
                 .background(Color.gray.opacity(0.3))
             
-            // Exercise cards
+            // Exercise cards - using LazyVStack for better performance with many exercises
             ForEach(exercises) { exercise in
                 ModernExerciseCard(
                     exercise: exercise,
-                    isExpanded: false, // No more expansion
+                    isExpanded: false,
                     performance: dataManager.getLastPerformance(for: exercise),
                     onTap: {
-                        // Direct navigation to details
                         onSelectExercise(exercise)
                     }
                 )
@@ -376,10 +435,10 @@ struct EmptyExercisesView: View {
     }
 }
 
-// Modern Exercise Card - renamed to avoid conflict
+// Modern Exercise Card
 struct ModernExerciseCard: View {
     var exercise: Exercise
-    var isExpanded: Bool // Kept for compatibility but not used anymore
+    var isExpanded: Bool
     var performance: ExercisePerformance?
     var onTap: () -> Void
     
@@ -427,7 +486,7 @@ struct ModernExerciseCard: View {
                             )
                     }
                     
-                    // Last used date - show only if date exists, using a safe approach
+                    // Last used date - show only if date exists
                     if performance?.date != nil {
                         Text(formatDate(performance!.date))
                             .font(.system(size: 12))

@@ -77,6 +77,9 @@ struct ContentView: View {
         .onAppear {
             selectedTab = 2
             UIPageControl.appearance().isHidden = true
+            
+            // Reset any problematic UIKit settings
+            resetScrollViewAppearance()
         }
     }
     
@@ -110,5 +113,21 @@ struct ContentView: View {
             .first
         
         return keyWindow?.safeAreaInsets.bottom ?? 0
+    }
+    
+    // Reset any problematic scrolling settings
+    private func resetScrollViewAppearance() {
+        // Make sure scrolling works correctly
+        UIScrollView.appearance().bounces = true
+        UIScrollView.appearance().isPagingEnabled = false
+        
+        // Fix tab appearance for iOS 15+
+        if #available(iOS 15.0, *) {
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = .black
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
     }
 }
