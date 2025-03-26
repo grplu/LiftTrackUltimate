@@ -13,179 +13,175 @@ struct TemplatesView: View {
     }
     
     var body: some View {
-        NavigationView {  // Added NavigationView here
-            ZStack {
-                // Background gradient
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 0) {
-                    // Header with search
-                    HStack(spacing: 16) {
-                        if isSearching {
-                            // Back button when searching
-                            Button(action: {
-                                withAnimation {
-                                    isSearching = false
-                                    searchText = ""
-                                }
-                            }) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                        } else {
-                            // Title when not searching
-                            Text(selectedTab == .myTemplates ? "Workout Templates" : "Template Store")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        
-                        Spacer()
-                        
-                        // Search button
+        // REMOVED NavigationView - THIS IS THE KEY CHANGE
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                // Header with search
+                HStack(spacing: 16) {
+                    if isSearching {
+                        // Back button when searching
                         Button(action: {
                             withAnimation {
-                                isSearching.toggle()
+                                isSearching = false
+                                searchText = ""
                             }
                         }) {
-                            Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
-                                .font(.system(size: 20))
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 20, weight: .medium))
                                 .foregroundColor(.white)
-                                .frame(width: 38, height: 38)
-                                .background(
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .opacity(isSearching ? 0 : 1)
-                                )
                         }
+                    } else {
+                        // Title when not searching
+                        Text(selectedTab == .myTemplates ? "Workout Templates" : "Template Store")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 12)
-                    .padding(.bottom, isSearching ? 8 : 16)
                     
-                    // Search field (when searching)
-                    if isSearching {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.gray)
-                                .padding(.leading, 8)
-                            
-                            TextField("Search templates...", text: $searchText)
-                                .foregroundColor(.white)
-                                .padding(.vertical, 12)
-                            
-                            if !searchText.isEmpty {
-                                Button(action: {
-                                    searchText = ""
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.gray)
-                                        .padding(.trailing, 8)
-                                }
+                    Spacer()
+                    
+                    // Search button
+                    Button(action: {
+                        withAnimation {
+                            isSearching.toggle()
+                        }
+                    }) {
+                        Image(systemName: isSearching ? "xmark.circle.fill" : "magnifyingglass")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 38, height: 38)
+                            .background(
+                                Circle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .opacity(isSearching ? 0 : 1)
+                            )
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, isSearching ? 8 : 16)
+                
+                // Search field (when searching)
+                if isSearching {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .padding(.leading, 8)
+                        
+                        TextField("Search templates...", text: $searchText)
+                            .foregroundColor(.white)
+                            .padding(.vertical, 12)
+                        
+                        if !searchText.isEmpty {
+                            Button(action: {
+                                searchText = ""
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .padding(.trailing, 8)
                             }
                         }
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color(.systemGray6).opacity(0.2))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                )
-                        )
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
                     }
-                    
-                    // Tab switcher
-                    HStack(spacing: 0) {
-                        TabButton(
-                            title: "My Templates",
-                            isSelected: selectedTab == .myTemplates,
-                            action: { withAnimation { selectedTab = .myTemplates } }
-                        )
-                        
-                        TabButton(
-                            title: "Discover",
-                            isSelected: selectedTab == .discover,
-                            action: { withAnimation { selectedTab = .discover } }
-                        )
-                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.systemGray6).opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    )
                     .padding(.horizontal)
                     .padding(.bottom, 16)
-                    
-                    // Templates content
-                    ScrollView {
-                        if selectedTab == .myTemplates {
-                            // My Templates
-                            myTemplatesSection
-                        } else {
-                            // Discover section
-                            discoverSection
-                        }
-                    }
-                    .refreshable {
-                        // Pull to refresh - reload templates
-                        animateCards = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation {
-                                animateCards = true
-                            }
-                        }
-                    }
                 }
                 
-                // Floating Add Button (only in My Templates tab)
-                if selectedTab == .myTemplates && !isSearching {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                showingAddTemplate = true
-                            }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 56, height: 56)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.blue)
-                                            .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
-                                    )
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 80) // Extra padding for tab bar
+                // Tab switcher
+                HStack(spacing: 0) {
+                    TabButton(
+                        title: "My Templates",
+                        isSelected: selectedTab == .myTemplates,
+                        action: { withAnimation { selectedTab = .myTemplates } }
+                    )
+                    
+                    TabButton(
+                        title: "Discover",
+                        isSelected: selectedTab == .discover,
+                        action: { withAnimation { selectedTab = .discover } }
+                    )
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 16)
+                
+                // Templates content
+                ScrollView {
+                    if selectedTab == .myTemplates {
+                        // My Templates
+                        myTemplatesSection
+                    } else {
+                        // Discover section
+                        discoverSection
+                    }
+                }
+                .refreshable {
+                    // Pull to refresh - reload templates
+                    animateCards = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        withAnimation {
+                            animateCards = true
                         }
                     }
                 }
             }
-            .sheet(isPresented: $showingAddTemplate) {
-                EnhancedTemplateCreationView(onSave: { newTemplate in
-                    // Save the new template to the data manager
-                    dataManager.saveTemplate(newTemplate)
-                })
-                .environmentObject(dataManager)
-                .environment(\.colorScheme, .dark)
-            }
-            .navigationBarHidden(true)
-            .onAppear {
-                // Animate cards when view appears
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation {
-                        animateCards = true
+            
+            // Floating Add Button (only in My Templates tab)
+            if selectedTab == .myTemplates && !isSearching {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            showingAddTemplate = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 56, height: 56)
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
+                                )
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 80) // Extra padding for tab bar
                     }
                 }
             }
-        } // Closing NavigationView here
+        }
+        .sheet(isPresented: $showingAddTemplate) {
+            EnhancedTemplateCreationView(onSave: { newTemplate in
+                // Save the new template to the data manager
+                dataManager.saveTemplate(newTemplate)
+            })
+            .environmentObject(dataManager)
+            .environment(\.colorScheme, .dark)
+        }
+        .onAppear {
+            // Animate cards when view appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation {
+                    animateCards = true
+                }
+            }
+        }
     }
     
-    // Update the myTemplatesSection in your TemplatesView.swift
-
     private var myTemplatesSection: some View {
         VStack(spacing: 16) {
             if dataManager.templates.isEmpty {

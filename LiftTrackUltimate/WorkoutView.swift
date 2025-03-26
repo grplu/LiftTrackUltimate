@@ -8,128 +8,124 @@ struct WorkoutView: View {
     @State private var templateToDelete: WorkoutTemplate?
     @State private var showingEditSheet = false
     @State private var templateToEdit: WorkoutTemplate?
-    @State private var showingCreateTemplateSheet = false // New state for template creation
+    @State private var showingCreateTemplateSheet = false
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background color
-                Color.black.edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 0) {
-                    // Title
-                    HStack {
-                        Text("Workout")
-                            .font(.system(size: 36, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal)
-                            .padding(.top, 16)
-                        Spacer()
-                    }
-                    
-                    // Templates List
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            ForEach(dataManager.templates) { template in
-                                WorkoutTemplateCard(
-                                    template: template,
-                                    onSelect: {
-                                        selectedTemplate = template
-                                        isWorkoutActive = true
-                                    },
-                                    onEdit: {
-                                        templateToEdit = template
-                                        showingEditSheet = true
-                                    },
-                                    onDelete: {
-                                        templateToDelete = template
-                                        showingDeleteAlert = true
-                                    }
-                                )
-                            }
-                            
-                            // Add a "Create New Template" card
-                            Button(action: {
-                                // Show enhanced template creation view
-                                showingCreateTemplateSheet = true
-                            }) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Create New Template")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                        
-                                        Text("Customize your own workout")
-                                            .font(.subheadline)
-                                            .foregroundColor(.gray)
-                                    }
-                                    .padding()
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.blue)
-                                        .padding(.trailing, 16)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color(.systemGray6).opacity(0.2))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                            .padding(.horizontal)
-                            
-                            // Add some padding at the bottom
-                            Spacer().frame(height: 100)
-                        }
+        // REMOVED NavigationView - THIS IS THE KEY CHANGE
+        ZStack {
+            // Background color
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Workout")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
                         .padding(.top, 16)
-                    }
-                    
-                    // Navigation to ActiveWorkoutView when a template is selected
-                    NavigationLink(
-                        destination: ActiveWorkoutView(
-                            template: selectedTemplate,
-                            onEnd: {
-                                isWorkoutActive = false
-                                selectedTemplate = nil
+                    Spacer()
+                }
+                
+                // Templates List (RESTORED TO ORIGINAL SCROLLING LIST)
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(dataManager.templates) { template in
+                            WorkoutTemplateCard(
+                                template: template,
+                                onSelect: {
+                                    selectedTemplate = template
+                                    isWorkoutActive = true
+                                },
+                                onEdit: {
+                                    templateToEdit = template
+                                    showingEditSheet = true
+                                },
+                                onDelete: {
+                                    templateToDelete = template
+                                    showingDeleteAlert = true
+                                }
+                            )
+                        }
+                        
+                        // Add a "Create New Template" card
+                        Button(action: {
+                            // Show enhanced template creation view
+                            showingCreateTemplateSheet = true
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Create New Template")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Customize your own workout")
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                }
+                                .padding()
+                                
+                                Spacer()
+                                
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.blue)
+                                    .padding(.trailing, 16)
                             }
-                        ),
-                        isActive: $isWorkoutActive
-                    ) {
-                        EmptyView()
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.systemGray6).opacity(0.2))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal)
+                        
+                        // Add some padding at the bottom
+                        Spacer().frame(height: 100)
                     }
+                    .padding(.top, 16)
+                }
+                
+                // Navigation to ActiveWorkoutView when a template is selected
+                NavigationLink(
+                    destination: ActiveWorkoutView(
+                        template: selectedTemplate,
+                        onEnd: {
+                            isWorkoutActive = false
+                            selectedTemplate = nil
+                        }
+                    ),
+                    isActive: $isWorkoutActive
+                ) {
+                    EmptyView()
                 }
             }
-            .navigationBarHidden(true)
-            .alert("Delete Template", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) {
-                    if let template = templateToDelete {
-                        dataManager.deleteTemplate(template)
-                    }
-                }
-            } message: {
-                Text("Are you sure you want to delete this template? This action cannot be undone.")
-            }
-            .sheet(isPresented: $showingEditSheet) {
-                if let template = templateToEdit {
-                    EditTemplateView(template: template)
-                        .environmentObject(dataManager)
+        }
+        .alert("Delete Template", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let template = templateToDelete {
+                    dataManager.deleteTemplate(template)
                 }
             }
-            // Use the enhanced template creation view instead of EditTemplateView for new templates
-            .sheet(isPresented: $showingCreateTemplateSheet) {
-                EnhancedTemplateCreationView(onSave: { newTemplate in
-                    // Save the template to the data manager
-                    dataManager.saveTemplate(newTemplate)
-                })
-                .environmentObject(dataManager)
+        } message: {
+            Text("Are you sure you want to delete this template? This action cannot be undone.")
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            if let template = templateToEdit {
+                EditTemplateView(template: template)
+                    .environmentObject(dataManager)
             }
+        }
+        .sheet(isPresented: $showingCreateTemplateSheet) {
+            EnhancedTemplateCreationView(onSave: { newTemplate in
+                dataManager.saveTemplate(newTemplate)
+            })
+            .environmentObject(dataManager)
         }
     }
 }

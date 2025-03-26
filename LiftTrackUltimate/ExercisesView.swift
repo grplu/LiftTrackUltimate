@@ -72,138 +72,143 @@ struct ExercisesView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background color
-                Color.black.edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 0) {
-                    // Modern search bar
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(searchText.isEmpty ? .gray : .blue)
-                            .font(.system(size: 18))
-                            .padding(.leading, 12)
-                        
-                        TextField("Search exercises", text: $searchText)
-                            .foregroundColor(.white)
-                            .padding(.vertical, 12)
-                            .accentColor(.blue)
-                        
-                        if !searchText.isEmpty {
-                            Button(action: {
-                                searchText = ""
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
-                                    .padding(.trailing, 12)
-                            }
-                        }
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(.systemGray6).opacity(0.2))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-                    
-                    // Muscle group pills
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(muscleGroups, id: \.self) { muscleGroup in
-                                MuscleGroupButton(
-                                    muscleGroup: muscleGroup,
-                                    isSelected: selectedMuscleGroup == muscleGroup,
-                                    onTap: {
-                                        if selectedMuscleGroup == muscleGroup {
-                                            selectedMuscleGroup = nil
-                                        } else {
-                                            selectedMuscleGroup = muscleGroup
-                                        }
-                                        // No reference to expandedExerciseId anymore
-                                    }
-                                )
-                            }
-                        }
+        // REMOVED NavigationView - THIS IS THE KEY CHANGE
+        ZStack {
+            // Background color
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                // Title
+                HStack {
+                    Text("Exercises")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundColor(.white)
                         .padding(.horizontal)
-                        .padding(.bottom, 12)
-                    }
+                        .padding(.top, 16)
+                    Spacer()
+                }
+                .padding(.bottom, 8)
+                
+                // Modern search bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(searchText.isEmpty ? .gray : .blue)
+                        .font(.system(size: 18))
+                        .padding(.leading, 12)
                     
-                    // Exercise list with sections
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            let groupedExercises = groupExercisesByMuscle()
-                            
-                            ForEach(groupedExercises.keys.sorted(), id: \.self) { muscleGroup in
-                                if let exercises = groupedExercises[muscleGroup] {
-                                    ExerciseMuscleGroupSection(
-                                        muscleGroup: muscleGroup,
-                                        exercises: exercises,
-                                        dataManager: dataManager,
-                                        onSelectExercise: { exercise in
-                                            selectedExercise = exercise
-                                            showingDetailView = true
-                                        }
-                                    )
-                                }
-                            }
-                            
-                            // Show empty state if no exercises
-                            if filteredExercises.isEmpty {
-                                EmptyExercisesView(
-                                    onClearFilters: {
-                                        searchText = ""
+                    TextField("Search exercises", text: $searchText)
+                        .foregroundColor(.white)
+                        .padding(.vertical, 12)
+                        .accentColor(.blue)
+                    
+                    if !searchText.isEmpty {
+                        Button(action: {
+                            searchText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                                .padding(.trailing, 12)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(.systemGray6).opacity(0.2))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                
+                // Muscle group pills
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(muscleGroups, id: \.self) { muscleGroup in
+                            MuscleGroupButton(
+                                muscleGroup: muscleGroup,
+                                isSelected: selectedMuscleGroup == muscleGroup,
+                                onTap: {
+                                    if selectedMuscleGroup == muscleGroup {
                                         selectedMuscleGroup = nil
+                                    } else {
+                                        selectedMuscleGroup = muscleGroup
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                }
+                
+                // Exercise list with sections
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        let groupedExercises = groupExercisesByMuscle()
+                        
+                        ForEach(groupedExercises.keys.sorted(), id: \.self) { muscleGroup in
+                            if let exercises = groupedExercises[muscleGroup] {
+                                ExerciseMuscleGroupSection(
+                                    muscleGroup: muscleGroup,
+                                    exercises: exercises,
+                                    dataManager: dataManager,
+                                    onSelectExercise: { exercise in
+                                        selectedExercise = exercise
+                                        showingDetailView = true
                                     }
                                 )
                             }
-                            
-                            // Padding at bottom to account for safe area
-                            Spacer().frame(height: 50)
                         }
+                        
+                        // Show empty state if no exercises
+                        if filteredExercises.isEmpty {
+                            EmptyExercisesView(
+                                onClearFilters: {
+                                    searchText = ""
+                                    selectedMuscleGroup = nil
+                                }
+                            )
+                        }
+                        
+                        // Padding at bottom to account for safe area
+                        Spacer().frame(height: 50)
                     }
                 }
-                
-                // Floating Add Button
-                VStack {
+            }
+            
+            // Floating Add Button
+            VStack {
+                Spacer()
+                HStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            showingNewExerciseView = true
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 56, height: 56)
-                                .background(Circle().fill(Color.blue))
-                                .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 80) // Adjust for tab bar
+                    Button(action: {
+                        showingNewExerciseView = true
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(Color.blue))
+                            .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
                     }
-                }
-            }
-            .navigationTitle("Exercises")
-            .navigationBarTitleDisplayMode(.large)
-            // No toolbar items as we're using the floating action button
-            .sheet(isPresented: $showingNewExerciseView) {
-                NewExerciseView()
-                    .environmentObject(dataManager)
-            }
-            .sheet(isPresented: $showingDetailView) {
-                if let exercise = selectedExercise {
-                    ExerciseDetailView(exercise: exercise)
-                        .environmentObject(dataManager)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 80) // Adjust for tab bar
                 }
             }
         }
-        .accentColor(.white) // For navigation bar title color
+        .sheet(isPresented: $showingNewExerciseView) {
+            NewExerciseView()
+                .environmentObject(dataManager)
+        }
+        .sheet(isPresented: $showingDetailView) {
+            if let exercise = selectedExercise {
+                ExerciseDetailView(exercise: exercise)
+                    .environmentObject(dataManager)
+            }
+        }
     }
     
     // Helper to get appropriate icon for muscle group
@@ -253,7 +258,7 @@ struct MuscleGroupButton: View {
                 Capsule()
                     .fill(isSelected ?
                           Color.blue :
-                          Color(.systemGray6).opacity(0.2)
+                            Color(.systemGray6).opacity(0.2)
                     )
             )
             .foregroundColor(.white)
@@ -469,120 +474,5 @@ struct ModernExerciseCard: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .none
         return formatter.string(from: date)
-    }
-}
-
-// Expanded Detail View - separated to reduce complexity
-struct ExerciseDetailExpanded: View {
-    var performance: ExercisePerformance?
-    @Binding var isFavorite: Bool
-    var onViewDetails: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // Performance data
-            HStack(spacing: 20) {
-                // Last used weight
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Last Weight")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    if let weight = performance?.lastUsedWeight {
-                        Text("\(String(format: "%.1f", weight)) kg")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white)
-                    } else {
-                        Text("—")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.gray)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Last reps
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Last Reps")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    if let reps = performance?.lastUsedReps {
-                        Text("\(reps)")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white)
-                    } else {
-                        Text("—")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.gray)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Best set
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Best Set")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    if let weight = performance?.avgWeight, let reps = performance?.avgReps {
-                        Text("\(String(format: "%.1f", weight)) × \(reps)")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white)
-                    } else {
-                        Text("—")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.gray)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal)
-            
-            // Action buttons
-            HStack(spacing: 12) {
-                // Delete exercise button
-                Button(action: {
-                    // Delete functionality would be implemented here
-                    // and connected to DataManager
-                }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text("Delete Exercise")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.red)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 16)
-                    .background(Capsule().fill(Color.red.opacity(0.2)))
-                }
-                
-                Spacer()
-                
-                // View details button
-                Button(action: onViewDetails) {
-                    Text("Details")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 16)
-                        .background(Capsule().fill(Color(.systemGray6).opacity(0.5)))
-                }
-                
-                // Favorite button
-                Button(action: {
-                    isFavorite.toggle()
-                    // This would be hooked up to DataManager
-                }) {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
-                        .foregroundColor(isFavorite ? .yellow : .gray)
-                        .padding(10)
-                        .background(Circle().fill(Color(.systemGray6).opacity(0.3)))
-                }
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 16)
-        }
-        .transition(.opacity.combined(with: .move(edge: .top)))
-        .background(Color(.systemGray6).opacity(0.05))
     }
 }

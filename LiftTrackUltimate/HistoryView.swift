@@ -8,107 +8,104 @@ struct HistoryView: View {
     @State private var animateEntrance = false
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                Color.black.edgesIgnoringSafeArea(.all)
-                
-                if isLoading {
-                    // Loading state with dumbbell animation
-                    VStack {
-                        LoadingDumbbellAnimation()
-                            .frame(width: 100, height: 100)
-                            .padding(.bottom, 20)
-                        
-                        Text("Loading your workout history...")
-                            .foregroundColor(.gray)
-                    }
-                } else if dataManager.workouts.isEmpty {
-                    // Empty state
-                    VStack(spacing: 20) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                        
-                        Text("No Workouts Yet")
-                            .font(.title2)
-                            .fontWeight(.bold)
+        // REMOVED NavigationView - THIS IS THE KEY CHANGE
+        ZStack {
+            // Background
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            if isLoading {
+                // Loading state with dumbbell animation
+                VStack {
+                    LoadingDumbbellAnimation()
+                        .frame(width: 100, height: 100)
+                        .padding(.bottom, 20)
+                    
+                    Text("Loading your workout history...")
+                        .foregroundColor(.gray)
+                }
+            } else if dataManager.workouts.isEmpty {
+                // Empty state
+                VStack(spacing: 20) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 60))
+                        .foregroundColor(.gray)
+                    
+                    Text("No Workouts Yet")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("Complete your first workout to see it here.")
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    NavigationLink(destination: WorkoutView()) {
+                        Text("Start a Workout")
+                            .fontWeight(.semibold)
                             .foregroundColor(.white)
-                        
-                        Text("Complete your first workout to see it here.")
-                            .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                        
-                        NavigationLink(destination: WorkoutView()) {
-                            Text("Start a Workout")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(10)
-                        }
-                        .padding(.top, 10)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(10)
                     }
-                    .padding()
-                    .opacity(animateEntrance ? 1 : 0)
-                    .offset(y: animateEntrance ? 0 : 20)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateEntrance)
-                } else {
-                    // Workouts history
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
-                            // Title with animation
-                            Text("Workout History")
-                                .font(.system(size: 36, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal)
-                                .padding(.top, 16)
-                                .opacity(animateEntrance ? 1 : 0)
-                                .offset(y: animateEntrance ? 0 : -20)
-                                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateEntrance)
-                            
-                            // Statistics card
-                            WorkoutStatsCard()
-                                .padding(.horizontal)
-                                .opacity(animateEntrance ? 1 : 0)
-                                .offset(y: animateEntrance ? 0 : 30)
-                                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1), value: animateEntrance)
-                            
-                            // Monthly sections
-                            ForEach(Array(monthlyWorkouts.keys.sorted().enumerated()), id: \.element) { index, month in
-                                if let workouts = monthlyWorkouts[month], !workouts.isEmpty {
-                                    MonthSection(month: month, workouts: workouts, index: index)
-                                        .opacity(animateEntrance ? 1 : 0)
-                                        .offset(y: animateEntrance ? 0 : 40)
-                                        .animation(
-                                            .spring(response: 0.6, dampingFraction: 0.8)
-                                            .delay(0.2 + Double(index) * 0.1),
-                                            value: animateEntrance
-                                        )
-                                }
+                    .padding(.top, 10)
+                }
+                .padding()
+                .opacity(animateEntrance ? 1 : 0)
+                .offset(y: animateEntrance ? 0 : 20)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateEntrance)
+            } else {
+                // Workouts history
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        // Title with animation
+                        Text("Workout History")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .padding(.top, 16)
+                            .opacity(animateEntrance ? 1 : 0)
+                            .offset(y: animateEntrance ? 0 : -20)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animateEntrance)
+                        
+                        // Statistics card
+                        WorkoutStatsCard()
+                            .padding(.horizontal)
+                            .opacity(animateEntrance ? 1 : 0)
+                            .offset(y: animateEntrance ? 0 : 30)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1), value: animateEntrance)
+                        
+                        // Monthly sections
+                        ForEach(Array(monthlyWorkouts.keys.sorted().enumerated()), id: \.element) { index, month in
+                            if let workouts = monthlyWorkouts[month], !workouts.isEmpty {
+                                MonthSection(month: month, workouts: workouts, index: index)
+                                    .opacity(animateEntrance ? 1 : 0)
+                                    .offset(y: animateEntrance ? 0 : 40)
+                                    .animation(
+                                        .spring(response: 0.6, dampingFraction: 0.8)
+                                        .delay(0.2 + Double(index) * 0.1),
+                                        value: animateEntrance
+                                    )
                             }
-                            
-                            Spacer(minLength: 80)
                         }
+                        
+                        Spacer(minLength: 80)
                     }
                 }
             }
-            .navigationBarTitle("", displayMode: .inline)
-            .navigationBarHidden(true)
-            .onAppear {
-                // Show loading animation briefly
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    loadWorkouts()
-                    
-                    // Animate entrance after data is loaded
-                    withAnimation {
-                        isLoading = false
-                    }
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        animateEntrance = true
-                    }
+        }
+        .onAppear {
+            // Show loading animation briefly
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                loadWorkouts()
+                
+                // Animate entrance after data is loaded
+                withAnimation {
+                    isLoading = false
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    animateEntrance = true
                 }
             }
         }
