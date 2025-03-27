@@ -1,5 +1,40 @@
 import SwiftUI
 
+// Custom view for the pulsing plus button animation
+struct PulsingPlusButton: View {
+    @State private var isPulsing = false
+    
+    var body: some View {
+        ZStack {
+            // Static background circle
+            Circle()
+                .fill(Color.blue.opacity(0.3))
+                .frame(width: 40, height: 40)
+            
+            // Pulsing circle
+            Circle()
+                .stroke(Color.blue.opacity(0.5), lineWidth: 2)
+                .frame(width: 40, height: 40)
+                .scaleEffect(isPulsing ? 1.5 : 1.0)
+                .opacity(isPulsing ? 0.0 : 0.5)
+                .animation(
+                    Animation.easeInOut(duration: 1.2)
+                        .repeatForever(autoreverses: false),
+                    value: isPulsing
+                )
+            
+            // Plus icon
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.blue)
+        }
+        .onAppear {
+            // Start the animation when the view appears
+            isPulsing = true
+        }
+    }
+}
+
 struct WorkoutView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var selectedTemplate: WorkoutTemplate?
@@ -9,29 +44,81 @@ struct WorkoutView: View {
     @State private var showingEditSheet = false
     @State private var templateToEdit: WorkoutTemplate?
     @State private var showingCreateTemplateSheet = false
+    @State private var selectedBodyPart: String? = nil
+    @State private var showDropdown = false
+    
+    // Body parts for filter
+    let bodyParts = ["All", "Arms", "Chest", "Back", "Shoulders", "Core", "Legs"]
+    
+    // Filter templates based on selected body part
+    var filteredTemplates: [WorkoutTemplate] {
+        guard let selectedBodyPart = selectedBodyPart, selectedBodyPart != "All" else {
+            return dataManager.templates
+        }
+        
+        return dataManager.templates.filter { template in
+            template.exercises.contains { exercise in
+                exercise.exercise.muscleGroups.contains { muscleGroup in
+                    muscleGroupToBodyPart(muscleGroup) == selectedBodyPart
+                }
+            }
+        }
+    }
     
     var body: some View {
-        // REMOVED NavigationView - THIS IS THE KEY CHANGE
-        ZStack {
+        ZStack(alignment: .top) {
             // Background color
             Color.black.edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 0) {
-                // Title
+                // Title and dropdown row
                 HStack {
                     Text("Workout")
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal)
-                        .padding(.top, 16)
+                    
                     Spacer()
+                    
+                    // Dropdown menu button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showDropdown.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Text(selectedBodyPart ?? "All")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.gray)
+                                .rotationEffect(Angle(degrees: showDropdown ? 180 : 0))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.15, green: 0.15, blue: 0.15))
+                        )
+                    }
+                    .padding(.trailing)
                 }
+                .padding(.horizontal)
+                .padding(.top, 16)
+                .zIndex(2)
                 
-                // Templates List (RESTORED TO ORIGINAL SCROLLING LIST)
+                // Templates List
                 ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(dataManager.templates) { template in
-                            WorkoutTemplateCard(
+                        // Padding to account for dropdown menu when expanded
+                        if showDropdown {
+                            Color.clear.frame(height: CGFloat(bodyParts.count * 44) + 16)
+                        }
+                        
+                        // Using filteredTemplates instead of dataManager.templates
+                        ForEach(filteredTemplates) { template in
+                            EnhancedWorkoutTemplateCard(
                                 template: template,
                                 onSelect: {
                                     selectedTemplate = template
@@ -48,9 +135,44 @@ struct WorkoutView: View {
                             )
                         }
                         
-                        // Add a "Create New Template" card
+                        // Empty state if no templates match filter
+                        if filteredTemplates.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "square.dashed")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray)
+                                    .padding(.top, 40)
+                                
+                                Text(selectedBodyPart == nil || selectedBodyPart == "All" ? "No workout templates found" : "No templates for \(selectedBodyPart!)")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Create a new template or select a different body part")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                                
+                                Button(action: {
+                                    selectedBodyPart = "All"
+                                }) {
+                                    Text("Show All Templates")
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule()
+                                                .stroke(Color.blue, lineWidth: 1)
+                                        )
+                                }
+                                .padding(.top, 8)
+                                .opacity(selectedBodyPart == "All" || selectedBodyPart == nil ? 0 : 1)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(20)
+                        }
+                        
+                        // Enhanced Create New Template button with pulsing animation
                         Button(action: {
-                            // Show enhanced template creation view
                             showingCreateTemplateSheet = true
                         }) {
                             HStack {
@@ -67,15 +189,20 @@ struct WorkoutView: View {
                                 
                                 Spacer()
                                 
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.blue)
+                                // Animated plus icon with pulsing effect
+                                PulsingPlusButton()
                                     .padding(.trailing, 16)
                             }
                             .frame(maxWidth: .infinity)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.systemGray6).opacity(0.2))
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.1)]),
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
@@ -83,12 +210,23 @@ struct WorkoutView: View {
                             )
                         }
                         .padding(.horizontal)
+                        .shadow(color: Color.blue.opacity(0.2), radius: 5, x: 0, y: 2)
                         
                         // Add some padding at the bottom
                         Spacer().frame(height: 100)
                     }
                     .padding(.top, 16)
                 }
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        // Dismiss dropdown when tapping elsewhere
+                        if showDropdown {
+                            withAnimation {
+                                showDropdown = false
+                            }
+                        }
+                    }
+                )
                 
                 // Navigation to ActiveWorkoutView when a template is selected
                 NavigationLink(
@@ -103,6 +241,70 @@ struct WorkoutView: View {
                 ) {
                     EmptyView()
                 }
+            }
+            
+            // Dropdown menu overlay (conditionally shown)
+            if showDropdown {
+                VStack(spacing: 0) {
+                    // Position space to align under the dropdown button
+                    Spacer().frame(height: 72)
+                    
+                    // Dropdown panel
+                    VStack(spacing: 0) {
+                        ForEach(bodyParts, id: \.self) { bodyPart in
+                            Button(action: {
+                                withAnimation {
+                                    selectedBodyPart = bodyPart == "All" ? nil : bodyPart
+                                    showDropdown = false
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: bodyPartIcon(bodyPart))
+                                        .foregroundColor(bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil) ? .white : .gray)
+                                        .frame(width: 30)
+                                    
+                                    Text(bodyPart)
+                                        .font(.system(size: 16))
+                                        .fontWeight(bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil) ? .semibold : .regular)
+                                        .foregroundColor(.white)
+                                    
+                                    Spacer()
+                                    
+                                    if bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil) {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.blue)
+                                            .font(.system(size: 14))
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil) ?
+                                        Color(red: 0.15, green: 0.15, blue: 0.25) :
+                                        Color.clear
+                                )
+                            }
+                            
+                            if bodyPart != bodyParts.last {
+                                Divider()
+                                    .background(Color.gray.opacity(0.2))
+                                    .padding(.horizontal, 0)
+                            }
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color(red: 0.2, green: 0.2, blue: 0.2), lineWidth: 1)
+                    )
+                    .padding(.horizontal)
+                    .shadow(color: Color.black.opacity(0.6), radius: 20, x: 0, y: 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+                .zIndex(1)
             }
         }
         .alert("Delete Template", isPresented: $showingDeleteAlert) {
@@ -128,9 +330,36 @@ struct WorkoutView: View {
             .environmentObject(dataManager)
         }
     }
+    
+    // Helper function to map muscle groups to body parts
+    func muscleGroupToBodyPart(_ muscleGroup: String) -> String {
+        let lowercased = muscleGroup.lowercased()
+        if lowercased.contains("chest") { return "Chest" }
+        if lowercased.contains("back") { return "Back" }
+        if lowercased.contains("shoulder") || lowercased.contains("delt") { return "Shoulders" }
+        if lowercased.contains("bicep") || lowercased.contains("tricep") || lowercased.contains("arm") { return "Arms" }
+        if lowercased.contains("core") || lowercased.contains("abdominal") { return "Core" }
+        if lowercased.contains("quad") || lowercased.contains("hamstring") || lowercased.contains("glute") || lowercased.contains("calf") || lowercased.contains("leg") { return "Legs" }
+        return "Other"
+    }
+    
+    // Helper function to get icon for body part
+    func bodyPartIcon(_ bodyPart: String) -> String {
+        switch bodyPart {
+        case "All": return "square.grid.2x2"
+        case "Arms": return "figure.arms.open"
+        case "Chest": return "heart.fill"
+        case "Back": return "figure.strengthtraining.traditional"
+        case "Shoulders": return "person.bust"
+        case "Core": return "figure.core.training"
+        case "Legs": return "figure.walk"
+        default: return "figure.mixed.cardio"
+        }
+    }
 }
 
-struct WorkoutTemplateCard: View {
+// Enhanced workout template card with color coding and icons
+struct EnhancedWorkoutTemplateCard: View {
     var template: WorkoutTemplate
     var onSelect: () -> Void
     var onEdit: () -> Void
@@ -139,20 +368,28 @@ struct WorkoutTemplateCard: View {
     var body: some View {
         Button(action: onSelect) {
             ZStack {
-                // Card background with subtle gradient
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.gray.opacity(0.2), Color.gray.opacity(0.15)]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                )
+                // Card background with color accent based on primary muscle group
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemGray6).opacity(0.2))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(accentColor.opacity(0.3), lineWidth: 2)
+                    )
                 
                 // Content
                 HStack {
+                    // Icon for primary muscle group
+                    ZStack {
+                        Circle()
+                            .fill(accentColor.opacity(0.2))
+                            .frame(width: 50, height: 50)
+                        
+                        Image(systemName: primaryMuscleIcon)
+                            .font(.system(size: 22))
+                            .foregroundColor(accentColor)
+                    }
+                    .padding(.leading, 12)
+                    
                     VStack(alignment: .leading, spacing: 8) {
                         Text(template.name)
                             .font(.system(size: 20, weight: .bold))
@@ -183,6 +420,12 @@ struct WorkoutTemplateCard: View {
                     
                     Spacer()
                     
+                    // Right chevron indicator
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .padding(.trailing, 8)
+                    
                     // More options button
                     Menu {
                         Button(action: onEdit) {
@@ -205,7 +448,6 @@ struct WorkoutTemplateCard: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .padding(.trailing, 8)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -219,5 +461,62 @@ struct WorkoutTemplateCard: View {
     private func estimatedDuration(for template: WorkoutTemplate) -> Int {
         // Assuming ~10 minutes per exercise as a rough estimate
         return template.exercises.count * 10
+    }
+    
+    // Determine the primary muscle group and corresponding color
+    private var primaryMuscleGroup: String {
+        // Count occurrences of each muscle group
+        var muscleGroupCounts: [String: Int] = [:]
+        
+        for exerciseTemplate in template.exercises {
+            for muscleGroup in exerciseTemplate.exercise.muscleGroups {
+                muscleGroupCounts[muscleGroup, default: 0] += 1
+            }
+        }
+        
+        // Return the most common muscle group, or "Mixed" if none
+        return muscleGroupCounts.max(by: { $0.value < $1.value })?.key ?? "Mixed"
+    }
+    
+    // Get icon for primary muscle group
+    private var primaryMuscleIcon: String {
+        let mainMuscle = primaryMuscleGroup.lowercased()
+        
+        if mainMuscle.contains("chest") {
+            return "heart.fill"
+        } else if mainMuscle.contains("back") {
+            return "figure.strengthtraining.traditional"
+        } else if mainMuscle.contains("shoulder") || mainMuscle.contains("delt") {
+            return "person.bust"
+        } else if mainMuscle.contains("bicep") || mainMuscle.contains("tricep") || mainMuscle.contains("arm") {
+            return "figure.arms.open"
+        } else if mainMuscle.contains("core") || mainMuscle.contains("ab") {
+            return "figure.core.training"
+        } else if mainMuscle.contains("leg") || mainMuscle.contains("quad") || mainMuscle.contains("hamstring") {
+            return "figure.walk"
+        } else {
+            return "figure.mixed.cardio"
+        }
+    }
+    
+    // Get accent color based on primary muscle group
+    private var accentColor: Color {
+        let mainMuscle = primaryMuscleGroup.lowercased()
+        
+        if mainMuscle.contains("chest") {
+            return .red
+        } else if mainMuscle.contains("back") {
+            return .blue
+        } else if mainMuscle.contains("shoulder") || mainMuscle.contains("delt") {
+            return .purple
+        } else if mainMuscle.contains("bicep") || mainMuscle.contains("tricep") || mainMuscle.contains("arm") {
+            return .green
+        } else if mainMuscle.contains("core") || mainMuscle.contains("ab") {
+            return .yellow
+        } else if mainMuscle.contains("leg") || mainMuscle.contains("quad") || mainMuscle.contains("hamstring") {
+            return .orange
+        } else {
+            return .blue
+        }
     }
 }
