@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ActiveWorkoutView: View {
     @Environment(\.dismiss) private var dismiss
@@ -18,9 +19,26 @@ struct ActiveWorkoutView: View {
     @State private var showingExerciseSelection = false
     @State private var showingCompletionAnimation = false
     
+    // Animation states
+    @State private var animateAddSet = false
+    @State private var animateRemoveSet = false
+    
+    // FIXED: Celebration animation state
+    @State private var celebrate: Bool = false
+    @State private var lastCompletionPercentage: Double = 0 // Track previous value
+    
     init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
         self.template = template
         self.onEnd = onEnd
+    }
+    
+    // Calculate the overall completion percentage
+    private var completionPercentage: Double {
+        let totalSets = sessionManager.exercises.reduce(0) { $0 + $1.sets.count }
+        if totalSets == 0 { return 0 }
+        
+        let completedSets = sessionManager.exercises.reduce(0) { $0 + $1.sets.filter(\.completed).count }
+        return Double(completedSets) / Double(totalSets) * 100
     }
     
     var body: some View {
@@ -29,162 +47,303 @@ struct ActiveWorkoutView: View {
             Color.black.edgesIgnoringSafeArea(.all)
             
             // Content area
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Custom navigation bar
-                    HStack {
-                        Button(action: {
-                            showingFinishAlert = true
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                Text("Back")
-                            }
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.blue)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
+            VStack(spacing: 0) {
+                // IMPROVED: Progress indicator with floating percentage and celebration animation
+                ZStack(alignment: .leading) {
+                    // Background track
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 6)
+                        .edgesIgnoringSafeArea(.horizontal)
                     
-                    // Workout header
-                    VStack(spacing: 16) {
-                        // Editable workout name
-                        TextField("Workout Name", text: $sessionManager.workoutName)
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 8)
-                            .focused($focusedField, equals: "workoutName")
-                        
-                        // Timer and heart rate
-                        HStack(spacing: 20) {
-                            // Timer display
-                            HStack {
-                                TimerDisplay(elapsedTime: sessionManager.elapsedTime)
-                                
-                                // Play/pause button
-                                Button(action: {
-                                    sessionManager.togglePause()
-                                }) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.blue.opacity(0.2))
-                                            .frame(width: 50, height: 50)
-                                        
-                                        Image(systemName: sessionManager.isTimerPaused ? "play.fill" : "pause.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.blue)
-                                    }
+                    // Progress fill with gradient
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue, Color.green]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: UIScreen.main.bounds.width * CGFloat(completionPercentage / 100), height: 6)
+                        .animation(.spring(response: 0.3), value: completionPercentage)
+                        .edgesIgnoringSafeArea(.horizontal)
+                        // FIXED: Make celebration animation more visible
+                        .overlay(
+                            Group {
+                                if completionPercentage >= 100 && celebrate {
+                                    Rectangle()
+                                        .fill(Color.white.opacity(0.5))
+                                        .frame(height: 6)
+                                        .opacity(celebrate ? 0.7 : 0)
+                                        .animation(Animation.easeInOut(duration: 0.5).repeatCount(3, autoreverses: true), value: celebrate)
                                 }
                             }
-                            
-                            // Heart rate display
-                            HeartRateDisplay(heartRate: sessionManager.heartRate)
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .padding(.horizontal)
-                    
-                    // Exercise cards - always expanded
-                    ForEach(sessionManager.exercises) { exercise in
-                        ExerciseCard(
-                            exercise: exercise,
-                            onSetComplete: { setIndex, isComplete in
-                                sessionManager.toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
-                            },
-                            onAddSet: {
-                                sessionManager.addSet(to: exercise)
-                            },
-                            onDeleteSet: { setIndex in
-                                sessionManager.deleteSet(from: exercise, at: setIndex)
-                            },
-                            onUpdateWeight: { setIndex, weight in
-                                sessionManager.updateWeight(for: exercise, setIndex: setIndex, weight: weight)
-                            },
-                            onUpdateReps: { setIndex, reps in
-                                sessionManager.updateReps(for: exercise, setIndex: setIndex, reps: reps)
-                            },
-                            dataManager: dataManager,
-                            focusedField: $focusedField,
-                            exerciseId: exercise.id.uuidString
                         )
-                    }
                     
-                    // Add exercise button
-                    Button(action: {
-                        dismissKeyboard()
-                        showingExerciseSelection = true
-                    }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
-                            
-                            Text("Add Exercise")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.vertical, 16)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.blue.opacity(0.1))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                        )
-                        .padding(.horizontal)
-                    }
-                    
-                    // Action buttons
-                    VStack(spacing: 16) {
-                        // Complete workout button
-                        Button(action: {
-                            dismissKeyboard()
-                            completeWorkout()
-                        }) {
-                            Text("Complete Workout")
-                                .font(.system(size: 16, weight: .bold))
+                    // IMPROVED: Percentage indicator positioning
+                    GeometryReader { geometry in
+                        // Calculate bubble position constrained within the screen
+                        let progressWidth = min(geometry.size.width * CGFloat(completionPercentage / 100), geometry.size.width)
+                        let bubbleWidth: CGFloat = 40 // Estimated width of the bubble
+                        
+                        // Position bubble, ensuring it stays within screen bounds
+                        let xPosition = min(max(progressWidth - bubbleWidth/2, 20), geometry.size.width - bubbleWidth - 20)
+                        
+                        // Only show when progress is above 1%
+                        if completionPercentage > 1 {
+                            Text("\(Int(completionPercentage))%")
+                                .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.white)
-                                .padding(.vertical, 16)
-                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.green)
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.6))
                                 )
-                                .padding(.horizontal)
+                                .position(x: xPosition, y: 12) // Position it ON the bar, not above it
+                                .animation(.spring(response: 0.3), value: completionPercentage)
+                        }
+                    }
+                }
+                .frame(height: 24) // Increased height to accommodate the bubble ON the bar
+                // FIXED: Add onChange modifier to detect 100% completion
+                .onChange(of: completionPercentage) { newValue in
+                    // Check if we've just reached 100%
+                    if newValue >= 100 && lastCompletionPercentage < 100 {
+                        withAnimation {
+                            celebrate = true
                         }
                         
-                        // Cancel workout button
-                        Button(action: {
-                            dismissKeyboard()
-                            showingFinishAlert = true
-                        }) {
-                            Text("Cancel Workout")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.vertical, 16)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.red)
-                                )
-                                .padding(.horizontal)
+                        // Strong haptic feedback when reaching 100%
+                        let feedback = UINotificationFeedbackGenerator()
+                        feedback.notificationOccurred(.success)
+                        
+                        // Reset after animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                            celebrate = false
                         }
                     }
-                    
-                    // Extra padding at bottom for safe area
-                    Spacer().frame(height: 40)
+                    // Update the last value
+                    lastCompletionPercentage = newValue
                 }
-                .padding(.top, 16)
-            }
-            // Add background tap gesture to dismiss keyboard
-            .contentShape(Rectangle())
-            .onTapGesture {
-                dismissKeyboard()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Custom navigation bar
+                        HStack {
+                            Button(action: {
+                                showingFinishAlert = true
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "chevron.left")
+                                    Text("Back")
+                                }
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.blue)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+                        
+                        // Workout header
+                        VStack(spacing: 16) {
+                            // Editable workout name
+                            TextField("Workout Name", text: $sessionManager.workoutName)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, 8)
+                                .focused($focusedField, equals: "workoutName")
+                            
+                            // Timer and heart rate
+                            HStack(spacing: 20) {
+                                // Timer display
+                                HStack {
+                                    TimerDisplay(elapsedTime: sessionManager.elapsedTime)
+                                    
+                                    // Play/pause button - Increased size
+                                    Button(action: {
+                                        sessionManager.togglePause()
+                                        
+                                        // Haptic feedback when play/pause is pressed
+                                        let feedback = UIImpactFeedbackGenerator(style: .medium)
+                                        feedback.impactOccurred()
+                                    }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.2))
+                                                .frame(width: 54, height: 54)
+                                            
+                                            Image(systemName: sessionManager.isTimerPaused ? "play.fill" : "pause.fill")
+                                                .font(.system(size: 24))
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                }
+                                
+                                // Heart rate display
+                                HeartRateDisplay(heartRate: sessionManager.heartRate)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Exercise cards - always expanded
+                        ForEach(sessionManager.exercises) { exercise in
+                            ExerciseCard(
+                                exercise: exercise,
+                                onSetComplete: { setIndex, isComplete in
+                                    sessionManager.toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
+                                    
+                                    // Haptic feedback when set is completed
+                                    if isComplete {
+                                        let feedback = UIImpactFeedbackGenerator(style: .light)
+                                        feedback.impactOccurred()
+                                    }
+                                },
+                                onAddSet: {
+                                    // Haptic feedback when set is added
+                                    let feedback = UIImpactFeedbackGenerator(style: .medium)
+                                    feedback.impactOccurred()
+                                    
+                                    // Add the set
+                                    sessionManager.addSet(to: exercise)
+                                    
+                                    // Trigger animation
+                                    withAnimation {
+                                        animateAddSet = true
+                                    }
+                                    
+                                    // Reset animation state after delay
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        animateAddSet = false
+                                    }
+                                },
+                                onDeleteSet: { setIndex in
+                                    // Haptic feedback when set is removed
+                                    let feedback = UIImpactFeedbackGenerator(style: .medium)
+                                    feedback.impactOccurred()
+                                    
+                                    // Trigger animation
+                                    withAnimation {
+                                        animateRemoveSet = true
+                                    }
+                                    
+                                    // Remove the set after a slight delay to allow animation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        sessionManager.deleteSet(from: exercise, at: setIndex)
+                                        
+                                        // Reset animation state after delay
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                            animateRemoveSet = false
+                                        }
+                                    }
+                                },
+                                onUpdateWeight: { setIndex, weight in
+                                    sessionManager.updateWeight(for: exercise, setIndex: setIndex, weight: weight)
+                                },
+                                onUpdateReps: { setIndex, reps in
+                                    sessionManager.updateReps(for: exercise, setIndex: setIndex, reps: reps)
+                                },
+                                dataManager: dataManager,
+                                focusedField: $focusedField,
+                                exerciseId: exercise.id.uuidString,
+                                animateAddSet: animateAddSet,
+                                animateRemoveSet: animateRemoveSet
+                            )
+                            .padding(.bottom, 15)
+                        }
+                        
+                        // Add exercise button
+                        Button(action: {
+                            dismissKeyboard()
+                            showingExerciseSelection = true
+                            
+                            // Haptic feedback
+                            let feedback = UIImpactFeedbackGenerator(style: .medium)
+                            feedback.impactOccurred()
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                
+                                Text("Add Exercise")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.blue)
+                            .padding(.vertical, 16)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.blue.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                            .padding(.horizontal)
+                        }
+                        
+                        // Action buttons
+                        VStack(spacing: 16) {
+                            // Complete workout button
+                            Button(action: {
+                                dismissKeyboard()
+                                
+                                // Haptic feedback
+                                let feedback = UINotificationFeedbackGenerator()
+                                feedback.notificationOccurred(.success)
+                                
+                                completeWorkout()
+                            }) {
+                                Text("Complete Workout")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color.green)
+                                    )
+                                    .padding(.horizontal)
+                            }
+                            
+                            // Cancel workout button
+                            Button(action: {
+                                dismissKeyboard()
+                                
+                                // Haptic feedback
+                                let feedback = UIImpactFeedbackGenerator(style: .medium)
+                                feedback.impactOccurred()
+                                
+                                showingFinishAlert = true
+                            }) {
+                                Text("Cancel Workout")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 16)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color.red)
+                                    )
+                                    .padding(.horizontal)
+                            }
+                        }
+                        
+                        // Extra padding at bottom for safe area
+                        Spacer().frame(height: 40)
+                    }
+                    .padding(.top, 4) // Small padding for separation
+                }
+                // Add background tap gesture to dismiss keyboard
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    dismissKeyboard()
+                }
             }
             
             // Completion animation overlay
@@ -234,6 +393,11 @@ struct ActiveWorkoutView: View {
                     Button(action: {
                         showingFinishAlert = false
                         sessionManager.cancelWorkout()
+                        
+                        // Haptic feedback
+                        let feedback = UINotificationFeedbackGenerator()
+                        feedback.notificationOccurred(.error)
+                        
                         onEnd()
                         dismiss()
                     }) {
@@ -387,12 +551,16 @@ struct ExerciseCard: View {
     var exercise: WorkoutExercise
     var onSetComplete: (Int, Bool) -> Void
     var onAddSet: () -> Void
-    var onDeleteSet: (Int) -> Void // New: Delete set callback
+    var onDeleteSet: (Int) -> Void
     var onUpdateWeight: (Int, Double?) -> Void
     var onUpdateReps: (Int, Int?) -> Void
     var dataManager: DataManager
     var focusedField: FocusState<String?>.Binding
     var exerciseId: String
+    
+    // Animation state flags
+    var animateAddSet: Bool
+    var animateRemoveSet: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -404,8 +572,8 @@ struct ExerciseCard: View {
                         .foregroundColor(.white)
                     
                     Text(exercise.exercise.muscleGroups.joined(separator: ", "))
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .font(.system(size: 16))
+                        .foregroundColor(Color.gray.opacity(0.8))
                 }
                 
                 Spacer()
@@ -432,37 +600,42 @@ struct ExerciseCard: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             
-            // Table header
+            // Added subtle divider between header and table
+            Divider()
+                .background(Color.gray.opacity(0.3))
+                .padding(.horizontal, 20)
+            
+            // Table header with improved styling
             HStack {
                 Text("Set")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.white)
                     .frame(width: 40, alignment: .center)
                 
                 Text("Last Time")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
-                    .frame(width: 80, alignment: .center)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(Color.gray.opacity(0.7))
+                    .frame(width: 100, alignment: .center)
                 
                 Text("kg")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.white)
                     .frame(width: 70, alignment: .center)
                 
                 Text("Reps")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.white)
                     .frame(width: 70, alignment: .center)
                 
                 Text("Done")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.white)
                     .frame(width: 60, alignment: .center)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             
-            // Sets rows
+            // Sets rows with improved visuals and animation
             ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
                 DetailedSetRow(
                     setNumber: index + 1,
@@ -482,51 +655,77 @@ struct ExerciseCard: View {
                     focusedField: focusedField,
                     weightFieldId: "\(exerciseId)_weight_\(index)",
                     repsFieldId: "\(exerciseId)_reps_\(index)",
-                    onDelete: exercise.sets.count > 1 ? { onDeleteSet(index) } : nil // New: Pass delete callback if more than one set
+                    onDelete: exercise.sets.count > 1 ? { onDeleteSet(index) } : nil,
+                    // Pass the animation flag for the last set
+                    isLastSet: index == exercise.sets.count - 1,
+                    animateAddSet: animateAddSet,
+                    animateRemoveSet: animateRemoveSet
                 )
                 
                 Divider()
-                    .background(Color.gray.opacity(0.2))
+                    .background(Color.gray.opacity(0.3))
                     .padding(.horizontal, 20)
             }
             
-            // Add/Remove Set buttons
+            // Add/Remove Set buttons with enhanced styling
             HStack {
                 Button(action: onAddSet) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18))
                             .foregroundColor(.blue)
                         
                         Text("Add Set")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.blue)
                     }
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 15)
+                    .padding(.horizontal, 10)
                     .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue.opacity(0.1))
+                            .shadow(color: Color.blue.opacity(0.2), radius: 3, x: 0, y: 2)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 10)
                 
-                // New: Only show remove set button if there's more than one set
                 if exercise.sets.count > 1 {
                     Button(action: {
-                        // Remove the last set
                         onDeleteSet(exercise.sets.count - 1)
                     }) {
                         HStack {
                             Image(systemName: "minus.circle.fill")
+                                .font(.system(size: 18))
                                 .foregroundColor(.red)
                             
                             Text("Remove Set")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.red)
                         }
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 15)
+                        .padding(.horizontal, 10)
                         .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.red.opacity(0.1))
+                                .shadow(color: Color.red.opacity(0.2), radius: 3, x: 0, y: 2)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .padding(.horizontal, 10)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 12)
             .padding(.bottom, 16)
         }
         .background(
@@ -540,20 +739,19 @@ struct ExerciseCard: View {
         .padding(.horizontal)
     }
     
-    // Helper to format last time text
     private func getLastTimeText(for exercise: Exercise, setIndex: Int) -> String {
         let lastPerformance = dataManager.getLastPerformance(for: exercise)
         
         if setIndex < lastPerformance?.setWeights.count ?? 0,
            let weight = lastPerformance?.setWeights[setIndex],
            let reps = lastPerformance?.setReps[setIndex] {
-            return "\(String(format: "%.1f", weight))×\(reps)"
+            return "\(String(format: "%.1f", weight)) kg × \(reps)"
         }
         return "—"
     }
 }
 
-// Detailed set row with optimized text input
+// Detailed set row with optimized text input and animations
 struct DetailedSetRow: View {
     var setNumber: Int
     var lastTimeText: String
@@ -566,16 +764,25 @@ struct DetailedSetRow: View {
     var focusedField: FocusState<String?>.Binding
     var weightFieldId: String
     var repsFieldId: String
-    var onDelete: (() -> Void)? // New: Optional delete callback
+    var onDelete: (() -> Void)?
+    
+    // Animation support
+    var isLastSet: Bool
+    var animateAddSet: Bool
+    var animateRemoveSet: Bool
     
     // Local state for text fields with preset values
     @State private var weightText: String
     @State private var repsText: String
     
+    // State for completion animation
+    @State private var showCompletionAnimation: Bool = false
+    
     // Initialize properly
     init(setNumber: Int, lastTimeText: String, currentWeight: Double?, currentReps: Int?, isCompleted: Bool,
          onToggleComplete: @escaping (Bool) -> Void, onUpdateWeight: @escaping (Double?) -> Void, onUpdateReps: @escaping (Int?) -> Void,
-         focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String, onDelete: (() -> Void)? = nil) {
+         focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String, onDelete: (() -> Void)? = nil,
+         isLastSet: Bool = false, animateAddSet: Bool = false, animateRemoveSet: Bool = false) {
         
         self.setNumber = setNumber
         self.lastTimeText = lastTimeText
@@ -588,7 +795,12 @@ struct DetailedSetRow: View {
         self.focusedField = focusedField
         self.weightFieldId = weightFieldId
         self.repsFieldId = repsFieldId
-        self.onDelete = onDelete  // New: Store delete callback
+        self.onDelete = onDelete
+        
+        // Animation properties
+        self.isLastSet = isLastSet
+        self.animateAddSet = animateAddSet
+        self.animateRemoveSet = animateRemoveSet
         
         // Initialize the text fields with current values
         _weightText = State(initialValue: currentWeight != nil ? String(format: "%.1f", currentWeight!) : "")
@@ -599,23 +811,22 @@ struct DetailedSetRow: View {
         HStack {
             // Set number
             Text("\(setNumber)")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.white)
                 .frame(width: 40, alignment: .center)
             
-            // Last time
+            // Last time with improved formatting - smaller and lighter
             Text(lastTimeText)
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-                .frame(width: 80, alignment: .center)
+                .font(.system(size: 12))
+                .foregroundColor(Color.gray.opacity(0.7))
+                .frame(width: 100, alignment: .center)
             
-            // Weight input - optimized with numeric keyboard and focus control
+            // Weight input with blue outline to indicate it's editable
             ZStack {
-                // Prefilled weight (for immediate display without focus delay)
                 if focusedField.wrappedValue != weightFieldId {
                     Text(weightText.isEmpty ? "0" : weightText)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(weightText.isEmpty ? .gray : .white)
+                        .foregroundColor(weightText.isEmpty ? Color.white.opacity(0.5) : .white)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
                 
@@ -635,20 +846,23 @@ struct DetailedSetRow: View {
                         }
                     }
             }
-            .frame(width: 70, height: 40)
+            .frame(width: 70, height: 42)
             .background(Color(.systemGray6).opacity(0.3))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
+            )
             .cornerRadius(10)
             .onTapGesture {
                 focusedField.wrappedValue = weightFieldId
             }
             
-            // Reps input - optimized with numeric keyboard and focus control
+            // Reps input with blue outline to indicate it's editable
             ZStack {
-                // Prefilled reps (for immediate display without focus delay)
                 if focusedField.wrappedValue != repsFieldId {
                     Text(repsText.isEmpty ? "0" : repsText)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(repsText.isEmpty ? .gray : .white)
+                        .foregroundColor(repsText.isEmpty ? Color.white.opacity(0.5) : .white)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
                 
@@ -667,33 +881,58 @@ struct DetailedSetRow: View {
                         }
                     }
             }
-            .frame(width: 70, height: 40)
+            .frame(width: 70, height: 42)
             .background(Color(.systemGray6).opacity(0.3))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
+            )
             .cornerRadius(10)
             .onTapGesture {
                 focusedField.wrappedValue = repsFieldId
             }
             
-            // Completion toggle
+            // Completion toggle with animation
             Button(action: {
+                // Animation when set is marked as completed
+                withAnimation(.spring(response: 0.3)) {
+                    showCompletionAnimation = !isCompleted // Only animate when completing, not when uncompleting
+                }
+                
+                // Call the completion handler
                 onToggleComplete(!isCompleted)
+                
+                // Reset the animation flag after a delay
+                if !isCompleted {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        withAnimation {
+                            showCompletionAnimation = false
+                        }
+                    }
+                }
             }) {
                 ZStack {
                     Circle()
                         .stroke(isCompleted ? Color.green : Color.gray.opacity(0.5), lineWidth: 2)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 32, height: 32)
                     
                     if isCompleted {
                         Circle()
                             .fill(Color.green)
-                            .frame(width: 22, height: 22)
+                            .frame(width: 24, height: 24)
+                            // Scale animation when completed
+                            .scaleEffect(showCompletionAnimation ? 1.2 : 1.0)
                     }
                 }
             }
             .frame(width: 60, alignment: .center)
         }
         .padding(.vertical, 8)
-        // New: Add context menu for delete option
+        .opacity(isLastSet && animateRemoveSet ? 0 : 1) // Fade out last set when removing
+        .scaleEffect(isLastSet && animateAddSet ? 0.8 : 1.0) // Scale animation for new sets
+        .opacity(isLastSet && animateAddSet ? 0.8 : 1.0) // Opacity animation for new sets
+        .animation(.spring(response: 0.3), value: animateAddSet) // Apply spring animation
+        .animation(.easeInOut(duration: 0.2), value: animateRemoveSet) // Apply remove animation
         .contextMenu {
             if let onDelete = onDelete {
                 Button(role: .destructive, action: onDelete) {
@@ -701,7 +940,6 @@ struct DetailedSetRow: View {
                 }
             }
         }
-        // New: Add swipe actions for delete
         .swipeActions(edge: .trailing) {
             if let onDelete = onDelete {
                 Button(role: .destructive, action: onDelete) {

@@ -66,10 +66,8 @@ struct WorkoutView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .top) {
-            // Background color
-            Color.black.edgesIgnoringSafeArea(.all)
-            
+        ZStack {
+            // Main content
             VStack(spacing: 0) {
                 // Title and dropdown row
                 HStack {
@@ -81,7 +79,8 @@ struct WorkoutView: View {
                     
                     // Dropdown menu button
                     Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        // Use simple animation to reduce graphics load
+                        withAnimation(.easeOut(duration: 0.2)) {
                             showDropdown.toggle()
                         }
                     }) {
@@ -111,11 +110,6 @@ struct WorkoutView: View {
                 // Templates List
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Padding to account for dropdown menu when expanded
-                        if showDropdown {
-                            Color.clear.frame(height: CGFloat(bodyParts.count * 44) + 16)
-                        }
-                        
                         // Using filteredTemplates instead of dataManager.templates
                         ForEach(filteredTemplates) { template in
                             EnhancedWorkoutTemplateCard(
@@ -217,16 +211,6 @@ struct WorkoutView: View {
                     }
                     .padding(.top, 16)
                 }
-                .simultaneousGesture(
-                    TapGesture().onEnded {
-                        // Dismiss dropdown when tapping elsewhere
-                        if showDropdown {
-                            withAnimation {
-                                showDropdown = false
-                            }
-                        }
-                    }
-                )
                 
                 // Navigation to ActiveWorkoutView when a template is selected
                 NavigationLink(
@@ -242,18 +226,28 @@ struct WorkoutView: View {
                     EmptyView()
                 }
             }
+            .withAppBackground() // Apply the background modifier here
             
-            // Dropdown menu overlay (conditionally shown)
+            // OPTIMIZED: Overlay for dropdown
+            if showDropdown {
+                // Simplified backdrop - no animation here
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            showDropdown = false
+                        }
+                    }
+            }
+            
+            // OPTIMIZED: Dropdown menu with simplified rendering
             if showDropdown {
                 VStack(spacing: 0) {
-                    // Position space to align under the dropdown button
-                    Spacer().frame(height: 72)
-                    
-                    // Dropdown panel
-                    VStack(spacing: 0) {
+                    // Much simpler dropdown panel
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(bodyParts, id: \.self) { bodyPart in
                             Button(action: {
-                                withAnimation {
+                                withAnimation(.easeIn(duration: 0.2)) {
                                     selectedBodyPart = bodyPart == "All" ? nil : bodyPart
                                     showDropdown = false
                                 }
@@ -279,7 +273,7 @@ struct WorkoutView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
                                 .background(
-                                    bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil) ?
+                                    (bodyPart == selectedBodyPart || (bodyPart == "All" && selectedBodyPart == nil)) ?
                                         Color(red: 0.15, green: 0.15, blue: 0.25) :
                                         Color.clear
                                 )
@@ -292,19 +286,22 @@ struct WorkoutView: View {
                             }
                         }
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
-                    )
+                    .background(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    .cornerRadius(16)
+                    // Simplified border
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(Color(red: 0.2, green: 0.2, blue: 0.2), lineWidth: 1)
                     )
-                    .padding(.horizontal)
-                    .shadow(color: Color.black.opacity(0.6), radius: 20, x: 0, y: 10)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 65) // Position just below the header
+                
+                    Spacer() // Push the dropdown to the top
                 }
-                .zIndex(1)
+                // Simplified animation and transition
+                .transition(.opacity)
+                .animation(.easeOut(duration: 0.2), value: showDropdown)
+                .zIndex(10)
             }
         }
         .alert("Delete Template", isPresented: $showingDeleteAlert) {
@@ -391,9 +388,14 @@ struct EnhancedWorkoutTemplateCard: View {
                     .padding(.leading, 12)
                     
                     VStack(alignment: .leading, spacing: 8) {
+                        // Dynamic text sizing with bolder font
                         Text(template.name)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 20, weight: .black))
                             .foregroundColor(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         
                         HStack(spacing: 16) {
                             // Exercise count with icon
