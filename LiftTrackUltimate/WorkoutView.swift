@@ -38,19 +38,37 @@ struct WorkoutView: View {
         ZStack {
             // Background gradient
             LinearGradient(
-                gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
+                           gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
+                           startPoint: .top,
+                           endPoint: .bottom
+                       )
             .edgesIgnoringSafeArea(.all)
             .contentShape(Rectangle()) // Make the entire background tappable
             .onTapGesture {
-                // Dismiss any confirmations with smooth animation
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                    confirmingTemplateId = nil
+                // Dismiss any confirmations with smooth animation when tapping on background
+                if confirmingTemplateId != nil {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        confirmingTemplateId = nil
+                    }
                 }
             }
-            
+
+            // OR if you specifically need a simultaneousGesture, use this syntax:
+
+            .edgesIgnoringSafeArea(.all)
+            .contentShape(Rectangle()) // Make the entire background tappable
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded { _ in
+                        // Dismiss any confirmations with smooth animation when tapping on background
+                        if confirmingTemplateId != nil {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                confirmingTemplateId = nil
+                            }
+                        }
+                    }
+            )
+
             // Main content
             VStack(spacing: 0) {
                 // Title and dropdown row
@@ -64,11 +82,10 @@ struct WorkoutView: View {
                     // Dropdown menu button
                     Button(action: {
                         // Dismiss any confirmation when opening dropdown
-                        withAnimation {
-                            // Toggle confirmation with smooth animation
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                            confirmingTemplateId = nil
-                        }
+                        if confirmingTemplateId != nil {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                confirmingTemplateId = nil
+                            }
                         }
                         
                         withAnimation(.easeOut(duration: 0.2)) {
@@ -134,26 +151,30 @@ struct WorkoutView: View {
                                     appear: animateCards,
                                     isConfirming: confirmingTemplateId == template.id,
                                     onCardTap: {
-                                        // Toggle confirmation state for this card
-                                        withAnimation {
-                                            confirmingTemplateId = confirmingTemplateId == template.id ? nil : template.id
-                                        }
-                                    },
-                                    onStartTap: {
-                                        // Start the workout
-                                        withAnimation {
-                                            confirmingTemplateId = nil
-                                            selectedTemplate = template
-                                            isWorkoutActive = true
-                                        }
-                                    },
-                                    onEdit: {
-                                        // Dismiss any confirmation when editing
-                                        confirmingTemplateId = nil
-                                        templateToEdit = template
-                                        showingEditSheet = true
-                                    },
-                                    onDelete: {
+                                                                           // Toggle confirmation state for this card - add haptic feedback
+                                                                           let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                                                           impactFeedback.prepare()
+                                                                           impactFeedback.impactOccurred()
+                                                                           
+                                                                           // If a different card is showing confirmation, hide it first with quick animation
+                                                                           if let currentId = confirmingTemplateId, currentId != template.id {
+                                                                               withAnimation(.easeOut(duration: 0.15)) {
+                                                                                   confirmingTemplateId = nil
+                                                                               }
+                                                                               
+                                                                               // Then after a tiny delay, show the new confirmation
+                                                                               DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                                                   withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                                                                       confirmingTemplateId = template.id
+                                                                                   }
+                                                                               }
+                                                                           } else {
+                                                                               // Just toggle current card's confirmation
+                                                                               withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                                                                   confirmingTemplateId = confirmingTemplateId == template.id ? nil : template.id
+                                                                               }
+                                                                           }
+                                                                       },                                    onDelete: {
                                         // Dismiss any confirmation when deleting
                                         confirmingTemplateId = nil
                                         templateToDelete = template
@@ -315,7 +336,9 @@ struct WorkoutView: View {
         }
         // Dismiss confirmation when changing tabs or leaving the view
         .onDisappear {
-            confirmingTemplateId = nil
+            withAnimation(.easeOut(duration: 0.2)) {
+                confirmingTemplateId = nil
+            }
         }
     }
     
@@ -423,6 +446,7 @@ struct WorkoutTemplateCard: View {
     var onEdit: () -> Void
     var onDelete: () -> Void
     @State private var isPressed = false
+    @State private var isStartPressed = false
     
     var body: some View {
         Button(action: {
@@ -442,19 +466,19 @@ struct WorkoutTemplateCard: View {
                 }
             }
         }) {
-            ZStack {
+            ZStack(alignment: .center) {
                 // Card content
-                VStack(alignment: .leading, spacing: 14) { // Reduced spacing
+                VStack(alignment: .leading, spacing: 12) {
                     // Top row with icon and menu
                     HStack(alignment: .center) {
-                        // Icon for primary muscle group - adjusted position
+                        // Icon for primary muscle group
                         ZStack {
                             Circle()
                                 .fill(accentColor.opacity(0.2))
                                 .frame(width: 40, height: 40)
                             
                             Image(systemName: primaryMuscleIcon)
-                                .font(.system(size: 16))
+                                .font(.system(size: 18))
                                 .foregroundColor(accentColor)
                         }
                         .padding(.top, 2)
@@ -478,21 +502,22 @@ struct WorkoutTemplateCard: View {
                                 .contentShape(Circle())
                         }
                     }
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 2)
                     
                     Spacer()
                     
-                    // Template name - adjusted for better fit
+                    // Template name - dynamic sizing
                     Text(template.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // Stats row - adjusted for better alignment
-                    HStack {
-                        // Exercise count with icon
-                        HStack(spacing: 4) {
+                    // Stats row - properly aligned
+                    HStack(alignment: .center) {
+                        // Exercise icon and count
+                        HStack(spacing: 6) {
                             Image(systemName: "dumbbell.fill")
                                 .font(.system(size: 12))
                                 .foregroundColor(.green)
@@ -504,15 +529,16 @@ struct WorkoutTemplateCard: View {
                         
                         Spacer()
                         
-                        // Chevron to indicate interactive card - moved up slightly
+                        // Chevron positioned correctly
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.gray)
-                            .padding(.bottom, 2)
+                            .offset(y: -1)
                     }
+                    .padding(.bottom, 4)
                     
-                    // Duration with icon - adjusted for better fit
-                    HStack(spacing: 4) {
+                    // Duration with icon - properly aligned
+                    HStack(spacing: 6) {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 12))
                             .foregroundColor(.orange)
@@ -523,99 +549,116 @@ struct WorkoutTemplateCard: View {
                             
                         Spacer()
                     }
-                    .padding(.bottom, 2) // Added bottom padding
                 }
-                .padding(.horizontal, 14) // Reduced padding
-                .padding(.vertical, 14)   // Reduced padding
+                .padding(16)
                 
                 // Confirmation overlay when confirming
                 if isConfirming {
-                    // Semi-transparent backdrop overlapping card boundaries
-                    Color.black.opacity(0.85)
-                        .cornerRadius(16)
-                        .frame(width: 180, height: 220) // Slightly larger than the card
-                        .shadow(color: Color.black.opacity(0.5), radius: 10, x: 0, y: 0)
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.9).combined(with: .opacity).animation(.spring(response: 0.4, dampingFraction: 0.7)),
-                                removal: .scale(scale: 0.9).combined(with: .opacity).animation(.easeOut(duration: 0.25))
-                            )
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            // Do nothing when tapping on the confirmation overlay itself
-                            // This prevents taps from going through to the background
-                        }
-                    
-                    // Confirmation content - adjusted for better fit
-                    VStack(spacing: 12) {
-                        // Template name with start text - add tap gesture to prevent dismissal
-                        Text("Start \(template.name)")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .padding(.top, 12)
-                            .padding(.horizontal, 12)
+                    // Position the confirmation dialog to be centered over this card
+                    GeometryReader { geometry in
+                        ZStack {
+                            // Semi-transparent backdrop
+                            Color.black.opacity(0.85)
+                                .cornerRadius(16)
+                                .frame(width: 170, height: 220) // Smaller size
+                                .shadow(color: Color.black.opacity(0.5), radius: 10, x: 0, y: 0)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // Do nothing when tapping on the confirmation overlay itself
+                                }
+                            
+                            // Confirmation content - adjusted for better fit
+                            VStack(spacing: 8) { // Reduced spacing
+                                // Template name with start text
+                                Text("Start \(template.name)")
+                                    .font(.system(size: 16, weight: .bold)) // Smaller font
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.7)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.top, 12)
+                                    .padding(.horizontal, 10)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        // Do nothing - prevent tap from propagating
+                                    }
+                                
+                                // Stats in row with adjusted spacing - FIXED TEXT CUTOFF
+                                HStack(spacing: 36) { // Reduced spacing
+                                    // Exercise count with better alignment
+                                    VStack(spacing: 4) {
+                                        Text("\(template.exercises.count)")
+                                            .font(.system(size: 22, weight: .bold)) // Smaller font to fit text
+                                            .foregroundColor(.white)
+                                        
+                                        Text("Exer...")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.gray)
+                                            .fixedSize(horizontal: true, vertical: false) // Prevent truncation
+                                    }
+                                    
+                                    // Duration with better alignment
+                                    VStack(spacing: 4) {
+                                        Text("\(durationInMinutes)")
+                                            .font(.system(size: 22, weight: .bold)) // Smaller font to fit text
+                                            .foregroundColor(.white)
+                                        
+                                        Text("Mins")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.gray)
+                                            .fixedSize(horizontal: true, vertical: false) // Prevent truncation
+                                    }
+                                }
+                                .padding(.vertical, 8) // Reduced padding
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // Do nothing - prevent tap from propagating
+                                }
+                                
+                                // Start button - smaller size with animation
+                                Button(action: {
+                                    // Visual feedback animation
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isStartPressed = true
+                                    }
+                                    
+                                    // Brief delay to show animation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        withAnimation {
+                                            isStartPressed = false
+                                        }
+                                        onStartTap()
+                                    }
+                                }) {
+                                    Text("Start")
+                                        .font(.system(size: 20, weight: .bold)) // Smaller font
+                                        .foregroundColor(.white)
+                                        .frame(width: 76, height: 76) // Smaller button
+                                        .background(
+                                            Circle()
+                                                .fill(Color.green)
+                                        )
+                                }
+                                .scaleEffect(isStartPressed ? 0.9 : 1.0)
+                                .padding(.top, 4) // Reduced padding
+                                .padding(.bottom, 12) // Reduced padding
+                            }
+                            .frame(width: 170, height: 220) // Match the backdrop size
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                // Do nothing - prevent tap from propagating
-                            }
-                        
-                        // Stats in row - add tap gesture to prevent dismissal
-                        HStack(spacing: 36) {
-                            // Exercise count
-                            VStack(spacing: 2) {
-                                Text("\(template.exercises.count)")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.white)
-                                
-                                Text("Ex...")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            // Duration
-                            VStack(spacing: 2) {
-                                Text("\(durationInMinutes)")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.white)
-                                
-                                Text("Mi...")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.gray)
+                                // Do nothing when tapping on the VStack content
                             }
                         }
-                        .padding(.vertical, 8)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            // Do nothing - prevent tap from propagating
-                        }
-                        
-                        // Start button - green circular button
-                        Button(action: onStartTap) {
-                            Text("Start")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 76, height: 76)
-                                .background(
-                                    Circle()
-                                        .fill(Color.green)
-                                )
-                        }
-                        .padding(.bottom, 12)
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    }
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.9).combined(with: .opacity).animation(.spring(response: 0.4, dampingFraction: 0.7).delay(0.05)),
-                            removal: .scale(scale: 0.9).combined(with: .opacity).animation(.easeOut(duration: 0.2))
+                        .position(x: geometry.size.width/2, y: geometry.size.height/2)
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.9).combined(with: .opacity)
+                                    .animation(.spring(response: 0.4, dampingFraction: 0.7)),
+                                removal: .scale(scale: 0.9).combined(with: .opacity)
+                                    .animation(.easeOut(duration: 0.25))
+                            )
                         )
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // Do nothing when tapping on the VStack content
-                        // This prevents taps from going through to the background
                     }
                 }
             }
@@ -634,6 +677,7 @@ struct WorkoutTemplateCard: View {
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 20)
+        .zIndex(isConfirming ? 10 : 0) // Increase z-index when confirming
         .animation(
             .spring(response: 0.5, dampingFraction: 0.8)
             .delay(0.1 + Double(index) * 0.05),
@@ -733,6 +777,7 @@ struct CreateTemplateCard: View {
                         )
                     
                     Image(systemName: "plus")
+                        
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.blue)
                 }
