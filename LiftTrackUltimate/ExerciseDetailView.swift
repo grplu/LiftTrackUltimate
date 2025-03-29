@@ -12,11 +12,8 @@ struct ExerciseDetailView: View {
     
     var exercise: Exercise
     
-    // Check if this is a custom exercise that can be deleted
+    // Pre-calculated property to avoid recalculation
     private var isCustomExercise: Bool {
-        // Since there's no defaultExercises property in DataManager,
-        // we'll check if the exercise is one of the sample exercises
-        
         // Define names of sample exercises created in loadSampleData
         // These are considered "default" and not deletable
         let defaultExerciseNames = [
@@ -38,36 +35,62 @@ struct ExerciseDetailView: View {
     // Tab titles
     private let tabs = ["Overview", "History", "Records"]
     
-    // Get performance history
-    private var performanceHistory: ExercisePerformance? {
-        return dataManager.getLastPerformance(for: exercise)
-    }
-    
     var body: some View {
-        ExerciseDetailContent(
-            exercise: exercise,
-            performanceHistory: performanceHistory,
-            tabs: tabs,
-            selectedTab: $selectedTab,
-            animateContent: $animateContent,
-            isFavorite: $isFavorite,
-            showingEditView: $showingEditView,
-            showingCustomDeleteConfirmation: $showingCustomDeleteConfirmation,
-            isCustomExercise: isCustomExercise,
-            dismiss: dismiss,
-            dataManager: dataManager
-        )
+        // Get performance history in the body to avoid environment object issues
+        let performanceHistory = dataManager.getLastPerformance(for: exercise)
+        
+        return ZStack {
+            // Background
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Hero section
+                        ExerciseHeroSection(
+                            exercise: exercise,
+                            performanceHistory: performanceHistory,
+                            animateContent: animateContent
+                        )
+                        
+                        // Tab selector
+                        TabSelector(
+                            tabs: tabs,
+                            selectedTab: $selectedTab,
+                            animateContent: animateContent
+                        )
+                        
+                        // Tab content
+                        TabContentView(
+                            selectedTab: selectedTab,
+                            exercise: exercise,
+                            dataManager: dataManager,
+                            animateContent: animateContent
+                        )
+                    }
+                    .padding(.bottom, 30)
+                }
+            }
+        }
         .navigationTitle("Exercise Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Edit button
-                    Button(action: {
-                        showingEditView = true
-                    }) {
-                        Image(systemName: "pencil")
-                            .foregroundColor(.blue)
+                HStack(spacing: 20) {
+                    // Edit button - only show for custom exercises
+                    if isCustomExercise {
+                        Button(action: {
+                            showingEditView = true
+                        }) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 22)) // Larger icon
+                                .foregroundColor(.blue)
+                                .padding(6) // Added padding for easier tapping
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.1))
+                                )
+                        }
                     }
                     
                     // Delete button - only show for custom exercises
@@ -76,7 +99,13 @@ struct ExerciseDetailView: View {
                             showingCustomDeleteConfirmation = true
                         }) {
                             Image(systemName: "trash")
+                                .font(.system(size: 22)) // Larger icon
                                 .foregroundColor(.red)
+                                .padding(6) // Added padding for easier tapping
+                                .background(
+                                    Circle()
+                                        .fill(Color.red.opacity(0.1))
+                                )
                         }
                     }
                 }
@@ -184,86 +213,10 @@ struct ExerciseDetailView: View {
             }
         )
         .onAppear {
-            // Animate content in
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
-                animateContent = true
-            }
-        }
-    }
-}
-
-// We've integrated the custom alert directly in the view rather than as separate components
-
-// MARK: - Main Content View
-struct ExerciseDetailContent: View {
-    var exercise: Exercise
-    var performanceHistory: ExercisePerformance?
-    var tabs: [String]
-    @Binding var selectedTab: Int
-    @Binding var animateContent: Bool
-    @Binding var isFavorite: Bool
-    @Binding var showingEditView: Bool
-    @Binding var showingCustomDeleteConfirmation: Bool
-    var isCustomExercise: Bool
-    var dismiss: DismissAction
-    var dataManager: DataManager
-    
-    var body: some View {
-        ZStack {
-            // Background
-            Color.black.edgesIgnoringSafeArea(.all)
-            
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // Hero section
-                        ExerciseHeroSection(
-                            exercise: exercise,
-                            performanceHistory: performanceHistory,
-                            animateContent: animateContent
-                        )
-                        
-                        // Tab selector
-                        TabSelector(
-                            tabs: tabs,
-                            selectedTab: $selectedTab,
-                            animateContent: animateContent
-                        )
-                        
-                        // Tab content
-                        TabContentView(
-                            selectedTab: selectedTab,
-                            exercise: exercise,
-                            dataManager: dataManager,
-                            animateContent: animateContent
-                        )
-                    }
-                    .padding(.bottom, 50)
-                }
-                
-                // Add Delete button at bottom for custom exercises
-                if isCustomExercise {
-                    Button(action: {
-                        showingCustomDeleteConfirmation = true
-                    }) {
-                        HStack {
-                            Image(systemName: "trash")
-                                .foregroundColor(.white)
-                            
-                            Text("Delete Exercise")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.red.opacity(0.7))
-                        )
-                        .padding(.horizontal)
-                        .padding(.bottom, 15)
-                    }
-                    .transition(.opacity)
+            // Fix for immediate animation
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                    animateContent = true
                 }
             }
         }

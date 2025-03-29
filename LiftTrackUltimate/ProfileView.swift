@@ -2,14 +2,16 @@ import SwiftUI
 import HealthKit
 
 struct ProfileView: View {
-    @ObservedObject var viewModel: ProfileViewModel
+    // CHANGED: Use the shared singleton instance
+    @ObservedObject var viewModel = ProfileViewModel.shared
     @State private var showingEditSheet = false
     @State private var showingSettingsSheet = false
     @State private var animateCards = false
     
-    init(viewModel: ProfileViewModel = ProfileViewModel()) {
-        self.viewModel = viewModel
-    }
+    // REMOVED: Custom initializer that creates a new instance
+    // init(viewModel: ProfileViewModel = ProfileViewModel()) {
+    //     self.viewModel = viewModel
+    // }
     
     var body: some View {
         ZStack {

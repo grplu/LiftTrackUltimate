@@ -9,7 +9,8 @@ struct ContentView: View {
             ZStack(alignment: .bottom) {
                 // Main content
                 TabView(selection: $selectedTab) {
-                    ProfileView(viewModel: createProfileViewModel())
+                    // CHANGED: Don't pass any viewModel to ProfileView
+                    ProfileView()
                         .tag(0)
                     
                     HistoryView()
@@ -80,6 +81,12 @@ struct ContentView: View {
             
             // Reset any problematic UIKit settings
             resetScrollViewAppearance()
+            
+            // Initialize the ProfileViewModel with the user profile from DataManager
+            ProfileViewModel.shared.userProfile = dataManager.profile
+            ProfileViewModel.shared.saveProfile = {
+                self.dataManager.profile = ProfileViewModel.shared.userProfile
+            }
         }
     }
     
@@ -91,17 +98,6 @@ struct ContentView: View {
         (title: "Exercises", icon: "dumbbell"),
         (title: "Templates", icon: "doc")
     ]
-    
-    private func createProfileViewModel() -> ProfileViewModel {
-        let viewModel = ProfileViewModel()
-        viewModel.userProfile = dataManager.profile
-        
-        viewModel.saveProfile = {
-            self.dataManager.profile = viewModel.userProfile
-        }
-        
-        return viewModel
-    }
     
     // Helper function for safe area
     private func getSafeAreaBottom() -> CGFloat {

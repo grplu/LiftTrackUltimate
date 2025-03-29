@@ -20,6 +20,38 @@ class DataManager: ObservableObject {
     private let templatesKey = "workoutTemplates"
     private let exercisePerformancesKey = "exercisePerformances"
     
+    // MARK: - Optimization Properties
+    
+    // Cache for workout data by date to avoid repeated calculations
+    private var workoutDataCache: [String: (planned: Int, completed: Int)] = [:]
+    
+    // Cache for performance data to avoid repeated lookups
+    private var performanceCache: [UUID: ExercisePerformance] = [:]
+    
+    // Track when workouts were last modified for cache invalidation
+    private var lastWorkoutModificationTime: Date? = Date.distantPast
+    
+    // Weekly progress cache
+    private var weeklyProgressCache: [(planned: Int, completed: Int)] = []
+    private var weeklyProgressCacheDate: Date?
+    private let weeklyProgressCacheValidDuration: TimeInterval = 300 // 5 minutes
+    
+    // Reusable date formatter and calendar to avoid creating them repeatedly
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }()
+    
+    let calendar = Calendar.current
+    
+    // Notification throttling
+    private var lastNotificationTime: Date?
+    private let notificationThrottleInterval: TimeInterval = 0.1 // seconds
+    
+    // Debug logging control - set to false for production
+    private let debugLoggingEnabled = false
+    
     init() {
         loadProfile()
         loadWorkouts()
@@ -31,6 +63,83 @@ class DataManager: ObservableObject {
         if exercises.isEmpty {
             loadSampleData()
         }
+        
+        // Initialize performance cache
+        updatePerformanceCache()
+    }
+    
+    // MARK: - Optimization Methods
+    
+    func debugLog(_ message: String) {
+        if debugLoggingEnabled {
+            print("DEBUG: \(message)")
+        }
+    }
+    
+    private func updatePerformanceCache() {
+        performanceCache.removeAll()
+        for performance in exercisePerformances {
+            performanceCache[performance.exerciseId] = performance
+        }
+    }
+    
+    private func clearCaches() {
+        workoutDataCache.removeAll()
+        performanceCache.removeAll()
+        weeklyProgressCache.removeAll()
+        weeklyProgressCacheDate = nil
+        updatePerformanceCache()
+    }
+    
+    func postThrottledNotification() {
+        let now = Date()
+        
+        // Check if we should throttle this notification
+        if let lastTime = lastNotificationTime,
+           now.timeIntervalSince(lastTime) < notificationThrottleInterval {
+            // Schedule a delayed notification instead
+            DispatchQueue.main.asyncAfter(deadline: .now() + notificationThrottleInterval) { [weak self] in
+                guard let self = self else { return }
+                self.lastNotificationTime = Date()
+                NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+                self.debugLog("Posted delayed workoutDataChanged notification")
+            }
+        } else {
+            // Post notification immediately
+            lastNotificationTime = now
+            NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+            debugLog("Posted immediate workoutDataChanged notification")
+        }
+    }
+    
+    // Method to invalidate cache for a specific date
+    private func invalidateCache(for date: Date) {
+        let dateKey = formattedDateKey(from: date)
+        workoutDataCache.removeValue(forKey: dateKey)
+        
+        // Also invalidate weekly progress if this date is in the current week
+        let calendar = Calendar.current
+        let currentWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date()))!
+        let currentWeekEnd = calendar.date(byAdding: .day, value: 7, to: currentWeekStart)!
+        
+        if date >= currentWeekStart && date < currentWeekEnd {
+            weeklyProgressCacheDate = nil
+            weeklyProgressCache.removeAll()
+        }
+        
+        // Update last modification time
+        lastWorkoutModificationTime = Date()
+    }
+    
+    // Helper to generate consistent date keys for caching
+    func formattedDateKey(from date: Date) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+    }
+    
+    // Get date for when workouts were last modified (used by StatsViewModel)
+    func getLastWorkoutModificationTime() -> Date? {
+        return lastWorkoutModificationTime
     }
     
     // MARK: - Profile Management
@@ -55,6 +164,8 @@ class DataManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: workoutsKey),
            let workouts = try? JSONDecoder().decode([AppWorkout].self, from: data) {
             self.workouts = workouts
+            clearCaches() // Clear caches when workouts are loaded
+            lastWorkoutModificationTime = Date() // Update modification time
         }
     }
     
@@ -66,30 +177,42 @@ class DataManager: ObservableObject {
         // Also save to HealthKit
         HealthKitManager.shared.saveWorkout(workout)
         
-        print("DEBUG: saveWorkout - Saved workout \(workout.name) with date \(workout.date)")
-        print("DEBUG: saveWorkout - Total exercises: \(workout.exercises.count)")
+        debugLog("saveWorkout - Saved workout \(workout.name) with date \(workout.date)")
+        debugLog("saveWorkout - Total exercises: \(workout.exercises.count)")
         
-        // Print completed sets information
-        for (index, exercise) in workout.exercises.enumerated() {
-            let completedSets = exercise.sets.filter { $0.completed }.count
-            print("DEBUG: saveWorkout - Exercise \(index + 1): \(exercise.exercise.name), Completed sets: \(completedSets)/\(exercise.sets.count)")
+        // Clear the cache for this date
+        invalidateCache(for: workout.date)
+        
+        // Print completed sets information (only in debug mode)
+        if debugLoggingEnabled {
+            for (index, exercise) in workout.exercises.enumerated() {
+                let completedSets = exercise.sets.filter { $0.completed }.count
+                debugLog("saveWorkout - Exercise \(index + 1): \(exercise.exercise.name), Completed sets: \(completedSets)/\(exercise.sets.count)")
+            }
         }
         
         // Notify observers about the workout data change
-        print("DEBUG: saveWorkout - Posting workoutDataChanged notification")
-        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+        debugLog("saveWorkout - Posting workoutDataChanged notification")
+        postThrottledNotification()
     }
     
     func updateWorkout(_ workout: AppWorkout) {
         if let index = workouts.firstIndex(where: { $0.id == workout.id }) {
+            // Get the old workout date to clear its cache
+            let oldDate = workouts[index].date
+            
             workouts[index] = workout
             saveWorkouts()
             
-            print("DEBUG: updateWorkout - Updated workout \(workout.name)")
+            // Clear caches for both old and new dates
+            invalidateCache(for: oldDate)
+            invalidateCache(for: workout.date)
+            
+            debugLog("updateWorkout - Updated workout \(workout.name)")
             
             // Notify observers about the workout data change
-            print("DEBUG: updateWorkout - Posting workoutDataChanged notification")
-            NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+            debugLog("updateWorkout - Posting workoutDataChanged notification")
+            postThrottledNotification()
         }
     }
     
@@ -97,19 +220,23 @@ class DataManager: ObservableObject {
         workouts.removeAll { $0.id == workout.id }
         saveWorkouts()
         
-        print("DEBUG: deleteWorkout - Deleted workout \(workout.name)")
+        // Clear the cache for this date
+        invalidateCache(for: workout.date)
+        
+        debugLog("deleteWorkout - Deleted workout \(workout.name)")
         
         // Notify observers about the workout data change
-        print("DEBUG: deleteWorkout - Posting workoutDataChanged notification")
-        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+        debugLog("deleteWorkout - Posting workoutDataChanged notification")
+        postThrottledNotification()
     }
     
     private func saveWorkouts() {
         if let encodedData = try? JSONEncoder().encode(workouts) {
             UserDefaults.standard.set(encodedData, forKey: workoutsKey)
-            print("DEBUG: saveWorkouts - Saved \(workouts.count) workouts to UserDefaults")
+            debugLog("saveWorkouts - Saved \(workouts.count) workouts to UserDefaults")
+            lastWorkoutModificationTime = Date() // Update modification time
         } else {
-            print("DEBUG: saveWorkouts - Failed to encode workouts")
+            debugLog("saveWorkouts - Failed to encode workouts")
         }
     }
     
@@ -191,7 +318,7 @@ class DataManager: ObservableObject {
         let completedSets = workoutExercise.sets.filter { $0.completed }
         guard !completedSets.isEmpty else { return }
         
-        print("DEBUG: saveExercisePerformance - Saving performance for \(workoutExercise.exercise.name) with \(completedSets.count) completed sets")
+        debugLog("saveExercisePerformance - Saving performance for \(workoutExercise.exercise.name) with \(completedSets.count) completed sets")
         
         // Extract weights and reps from sets
         let setWeights = completedSets.map { $0.weight }
@@ -238,12 +365,15 @@ class DataManager: ObservableObject {
             exercisePerformances.append(performance)
         }
         
+        // Update the cache
+        performanceCache[exerciseId] = performance
+        
         // Save to UserDefaults
         saveExercisePerformances()
         
         // Notify observers about the workout data change
-        print("DEBUG: saveExercisePerformance - Posting workoutDataChanged notification")
-        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+        debugLog("saveExercisePerformance - Posting workoutDataChanged notification")
+        postThrottledNotification()
     }
     
     func saveExercisePerformance(_ performance: ExercisePerformance) {
@@ -255,6 +385,9 @@ class DataManager: ObservableObject {
             // Add new performance
             exercisePerformances.append(performance)
         }
+        
+        // Update the cache
+        performanceCache[performance.exerciseId] = performance
         
         // Save to UserDefaults
         saveExercisePerformances()
@@ -270,8 +403,8 @@ class DataManager: ObservableObject {
         saveProfile(updatedProfile)
         
         // Notify observers about the workout data change
-        print("DEBUG: saveExercisePerformance - Posting workoutDataChanged notification")
-        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+        debugLog("saveExercisePerformance - Posting workoutDataChanged notification")
+        postThrottledNotification()
     }
     
     // Save all performances at once
@@ -281,7 +414,7 @@ class DataManager: ObservableObject {
             let data = try encoder.encode(exercisePerformances)
             UserDefaults.standard.set(data, forKey: exercisePerformancesKey)
         } catch {
-            print("Error saving exercise performances: \(error)")
+            debugLog("Error saving exercise performances: \(error)")
         }
     }
     
@@ -291,8 +424,11 @@ class DataManager: ObservableObject {
                 let decoder = JSONDecoder()
                 let performances = try decoder.decode([ExercisePerformance].self, from: data)
                 self.exercisePerformances = performances
+                
+                // Update the cache with loaded performances
+                updatePerformanceCache()
             } catch {
-                print("Error decoding exercise performances: \(error)")
+                debugLog("Error decoding exercise performances: \(error)")
                 self.exercisePerformances = []
             }
         }
@@ -300,7 +436,8 @@ class DataManager: ObservableObject {
     
     // Get the last performance for an exercise
     func getLastPerformance(for exercise: Exercise) -> ExercisePerformance? {
-        return exercisePerformances.first { $0.exerciseId == exercise.id }
+        // Use cached performance if available
+        return performanceCache[exercise.id] ?? exercisePerformances.first { $0.exerciseId == exercise.id }
     }
     
     // Get weight for a specific set
@@ -335,46 +472,136 @@ class DataManager: ObservableObject {
     
     func clearExercisePerformances() {
         exercisePerformances.removeAll()
+        performanceCache.removeAll()
         UserDefaults.standard.removeObject(forKey: exercisePerformancesKey)
         
         // Notify observers about the data change
-        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+        postThrottledNotification()
     }
     
     // MARK: - Workout Progress Data
     
+    // Optimized version of getWorkoutData that was causing performance issues
     func getWorkoutData(for date: Date) -> (planned: Int, completed: Int) {
-        let calendar = Calendar.current
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
+        // Create a cache key based on the date
+        let dateKey = formattedDateKey(from: date)
         
-        print("DEBUG: Getting workout data for date: \(dateFormatter.string(from: date))")
-        
-        // Filter workouts for the specified date
-        let workoutsOnDate = workouts.filter { workout in
-            let isOnSameDay = calendar.isDate(workout.date, inSameDayAs: date)
-            print("DEBUG: Checking workout from \(dateFormatter.string(from: workout.date)), same day? \(isOnSameDay)")
-            return isOnSameDay
+        // Return cached result if available
+        if let cachedResult = workoutDataCache[dateKey] {
+            debugLog("Using cached workout data for \(dateFormatter.string(from: date))")
+            return cachedResult
         }
         
-        // If there are no workouts on this date, return zeros
+        debugLog("Getting workout data for date: \(dateFormatter.string(from: date))")
+        
+        // Filter workouts for the specified date - more efficiently
+        let workoutsOnDate = workouts.filter {
+            calendar.isDate($0.date, inSameDayAs: date)
+        }
+        
+        // If there are no workouts on this date, cache and return zeros
         if workoutsOnDate.isEmpty {
-            print("DEBUG: No workouts found for this date")
-            return (0, 0)
+            debugLog("No workouts found for this date")
+            let result = (0, 0)
+            workoutDataCache[dateKey] = result
+            return result
         }
         
-        // Each workout counts as one planned unit
-        let plannedCount = workoutsOnDate.count
+        // Calculate planned and completed in a single pass
+        var plannedCount = 0
+        var completedCount = 0
         
-        // Count workouts with completed sets as completed
-        let completedCount = workoutsOnDate.filter { workout in
-            let hasCompletedSets = workout.exercises.flatMap { $0.sets }.contains { $0.completed }
-            print("DEBUG: Workout \(workout.name) has completed sets? \(hasCompletedSets)")
-            return hasCompletedSets
-        }.count
+        for workout in workoutsOnDate {
+            plannedCount += 1
+            
+            // Check if any set is completed
+            let hasCompletedSets = workout.exercises.contains { exercise in
+                exercise.sets.contains { $0.completed }
+            }
+            
+            if hasCompletedSets {
+                completedCount += 1
+            }
+        }
         
-        print("DEBUG: Found \(plannedCount) planned and \(completedCount) completed workouts")
-        return (plannedCount, completedCount)
+        debugLog("Found \(plannedCount) planned and \(completedCount) completed workouts")
+        
+        // Cache and return the result
+        let result = (plannedCount, completedCount)
+        workoutDataCache[dateKey] = result
+        return result
+    }
+    
+    // MARK: - Weekly Progress Calculation
+    
+    // Calculate weekly progress for all days of the current week
+    // This is a helper for ProfileViewModel to avoid redundant calculations
+    func getWeeklyProgressData() -> [(planned: Int, completed: Int)] {
+        let now = Date()
+        
+        // Check if we have a valid cached weekly progress
+        if let cacheDate = weeklyProgressCacheDate,
+           !weeklyProgressCache.isEmpty,
+           now.timeIntervalSince(cacheDate) < weeklyProgressCacheValidDuration,
+           lastWorkoutModificationTime ?? Date.distantPast < cacheDate {
+            
+            debugLog("Using cached weekly progress data")
+            return weeklyProgressCache
+        }
+        
+        // Cache is invalid or doesn't exist - calculate weekly progress
+        debugLog("Calculating weekly progress at \(now)")
+        
+        // Get the date for Monday of the current week
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        let mondayDate = calendar.date(from: components)!
+        
+        debugLog("Monday date for this week is \(mondayDate.formatted(.dateTime.day().month().year()))")
+        
+        // Pre-calculate all the dates for the week at once
+        var weekDates: [Date] = []
+        for dayOffset in 0..<7 {
+            if let date = calendar.date(byAdding: .day, value: dayOffset, to: mondayDate) {
+                weekDates.append(date)
+            }
+        }
+        
+        // Calculate workout stats for each day in a single pass through the workouts array
+        var dayStats: [(planned: Int, completed: Int)] = Array(repeating: (0, 0), count: 7)
+        
+        // Create a mapping of date string to day index for faster lookups
+        var dateToIndexMap: [String: Int] = [:]
+        for (index, date) in weekDates.enumerated() {
+            let dateKey = formattedDateKey(from: date)
+            dateToIndexMap[dateKey] = index
+        }
+        
+        // Process each workout only once
+        for workout in workouts {
+            let dateKey = formattedDateKey(from: workout.date)
+            
+            if let dayIndex = dateToIndexMap[dateKey] {
+                // Count as planned
+                dayStats[dayIndex].planned += 1
+                
+                // Check if any set is completed
+                let hasCompletedSets = workout.exercises.contains { exercise in
+                    exercise.sets.contains { $0.completed }
+                }
+                
+                if hasCompletedSets {
+                    dayStats[dayIndex].completed += 1
+                }
+            }
+        }
+        
+        // Cache the results
+        weeklyProgressCache = dayStats
+        weeklyProgressCacheDate = now
+        
+        // Return the results
+        return dayStats
     }
     
     // MARK: - Sample Data
@@ -442,6 +669,9 @@ class DataManager: ObservableObject {
         
         self.exercises = sampleExercises
         saveExercises()
+        
+        // Build caches after loading sample data
+        clearCaches()
         
         // Updated Templates with more exercises
         let upperBodyTemplate = WorkoutTemplate(

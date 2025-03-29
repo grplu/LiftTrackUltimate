@@ -2,75 +2,22 @@ import SwiftUI
 
 struct ExercisesView: View {
     @EnvironmentObject var dataManager: DataManager
+    
+    // State variables
     @State private var searchText = ""
     @State private var selectedMuscleGroup: String? = nil
     @State private var selectedExercise: Exercise? = nil
     @State private var showingDetailView = false
     @State private var showingNewExerciseView = false
-    @State private var isLoadingExercise = false
+    
+    // Advanced optimization: Prefetch and maintain data
+    @State private var allExercises: [Exercise] = []
+    @State private var filteredExercises: [Exercise] = []
+    @State private var groupedExercises: [String: [Exercise]] = [:]
+    @State private var isFirstAppear = true
     
     // Muscle group filters
     let muscleGroups = ["All", "Chest", "Back", "Shoulders", "Delts", "Arms", "Legs", "Core"]
-    
-    var filteredExercises: [Exercise] {
-        // First filter by muscle group
-        let muscleGroupFiltered: [Exercise]
-        if selectedMuscleGroup == nil || selectedMuscleGroup == "All" {
-            muscleGroupFiltered = dataManager.exercises
-        } else if selectedMuscleGroup == "Core" {
-            // Special case for Core to include Abdominals
-            muscleGroupFiltered = dataManager.exercises.filter { exercise in
-                let muscleGroups = exercise.muscleGroups
-                return muscleGroups.contains(selectedMuscleGroup!) || muscleGroups.contains("Abdominals")
-            }
-        } else {
-            // Regular case - just filter by the selected muscle group
-            muscleGroupFiltered = dataManager.exercises.filter { exercise in
-                exercise.muscleGroups.contains(selectedMuscleGroup!)
-            }
-        }
-        
-        // Then filter by search text if needed
-        if searchText.isEmpty {
-            return muscleGroupFiltered
-        } else {
-            let lowercasedSearch = searchText.lowercased()
-            return muscleGroupFiltered.filter { exercise in
-                // Check if name contains search text
-                let nameMatch = exercise.name.lowercased().contains(lowercasedSearch)
-                if nameMatch {
-                    return true
-                }
-                
-                // Check if any muscle group contains search text
-                let muscleGroupsString = exercise.muscleGroups.joined(separator: " ").lowercased()
-                return muscleGroupsString.contains(lowercasedSearch)
-            }
-        }
-    }
-    
-    // Group exercises by primary muscle group - simplified to avoid compiler issues
-    func groupExercisesByMuscle() -> [String: [Exercise]] {
-        var grouped = [String: [Exercise]]()
-        
-        for exercise in filteredExercises {
-            if let primaryMuscle = exercise.muscleGroups.first {
-                if grouped[primaryMuscle] == nil {
-                    grouped[primaryMuscle] = []
-                }
-                grouped[primaryMuscle]?.append(exercise)
-            } else {
-                // Handle exercises with no muscle groups
-                let category = "Other"
-                if grouped[category] == nil {
-                    grouped[category] = []
-                }
-                grouped[category]?.append(exercise)
-            }
-        }
-        
-        return grouped
-    }
     
     var body: some View {
         ZStack {
@@ -100,10 +47,17 @@ struct ExercisesView: View {
                         .foregroundColor(.white)
                         .padding(.vertical, 12)
                         .accentColor(.blue)
+                        .onChange(of: searchText) { newValue in
+                            // Debounced filtering
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                filterExercises()
+                            }
+                        }
                     
                     if !searchText.isEmpty {
                         Button(action: {
                             searchText = ""
+                            filterExercises()
                         }) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
@@ -136,6 +90,7 @@ struct ExercisesView: View {
                                     } else {
                                         selectedMuscleGroup = muscleGroup
                                     }
+                                    filterExercises()
                                 }
                             )
                         }
@@ -145,91 +100,152 @@ struct ExercisesView: View {
                 }
                 
                 // Exercise list with sections - LazyVStack for performance
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        let groupedExercises = groupExercisesByMuscle()
-                        
-                        ForEach(groupedExercises.keys.sorted(), id: \.self) { muscleGroup in
-                            if let exercises = groupedExercises[muscleGroup] {
-                                ExerciseMuscleGroupSection(
-                                    muscleGroup: muscleGroup,
-                                    exercises: exercises,
-                                    dataManager: dataManager,
-                                    onSelectExercise: { exercise in
-                                        selectedExercise = exercise
-                                        showingDetailView = true
-                                    }
-                                    
-                                )
-                            }
-                        }
-                        
-                        // Show empty state if no exercises
-                        if filteredExercises.isEmpty {
-                            EmptyExercisesView(
-                                onClearFilters: {
-                                    searchText = ""
-                                    selectedMuscleGroup = nil
+                if !filteredExercises.isEmpty {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(groupedExercises.keys.sorted(), id: \.self) { muscleGroup in
+                                if let exercises = groupedExercises[muscleGroup], !exercises.isEmpty {
+                                    ExerciseMuscleGroupSection(
+                                        muscleGroup: muscleGroup,
+                                        exercises: exercises,
+                                        dataManager: dataManager,
+                                        onSelectExercise: { exercise in
+                                            // Simple, direct selection - avoid redundant calculations
+                                            selectedExercise = exercise
+                                            showingDetailView = true
+                                        }
+                                    )
                                 }
-                            )
+                            }
+                            
+                            // Padding at bottom to account for safe area
+                            Spacer().frame(height: 100)
                         }
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    // Show empty state if no exercises
+                    EmptyExercisesView(
+                        onClearFilters: {
+                            searchText = ""
+                            selectedMuscleGroup = nil
+                            filterExercises()
+                        }
+                    )
+                }
+            }
+        }
+        // OPTIMIZATION: Add ID to improve state management
+        .id("ExercisesView")
+        
+        // Floating Action Button
+        .overlay(
+            Button {
+                showingNewExerciseView = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Color.blue))
+                    .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+            .padding(.trailing, 20)
+            .padding(.bottom, 80) // Adjust for tab bar
+            .contentShape(Circle()) // Ensure the whole circle is tappable
+            ,
+            alignment: .bottomTrailing
+        )
+        .sheet(isPresented: $showingDetailView) {
+            if let exercise = selectedExercise {
+                // Use NavigationView to ensure proper environment inheritance
+                NavigationView {
+                    ZStack {
+                        Color.black.edgesIgnoringSafeArea(.all)
                         
-                        // Padding at bottom to account for safe area
-                        Spacer().frame(height: 50)
+                        ExerciseDetailView(exercise: exercise)
                     }
                 }
-                .scrollIndicators(.hidden) // Hide scroll indicators for cleaner UI
+                .navigationViewStyle(StackNavigationViewStyle())
+                .environmentObject(dataManager)
+            }
+        }
+        .sheet(isPresented: $showingNewExerciseView) {
+            NewExerciseView()
+                .environmentObject(dataManager)
+        }
+        // OPTIMIZATION: Only load data once
+        .onAppear {
+            if isFirstAppear {
+                // Preload and preprocess data on first appear
+                allExercises = dataManager.exercises
+                filterExercises()
+                isFirstAppear = false
+            }
+        }
+    }
+    
+    // MARK: - Optimized Filtering
+    
+    private func filterExercises() {
+        // Start with all exercises
+        var result = allExercises
+        
+        // First filter by muscle group (more selective)
+        if let selectedGroup = selectedMuscleGroup, selectedGroup != "All" {
+            if selectedGroup == "Core" {
+                // Special case for Core
+                result = result.filter { exercise in
+                    exercise.muscleGroups.contains(selectedGroup) || exercise.muscleGroups.contains("Abdominals")
+                }
+            } else {
+                result = result.filter { exercise in
+                    exercise.muscleGroups.contains(selectedGroup)
+                }
+            }
+        }
+        
+        // Then filter by search text
+        if !searchText.isEmpty {
+            let lowercasedSearch = searchText.lowercased()
+            result = result.filter { exercise in
+                // Check name first (most common match)
+                if exercise.name.lowercased().contains(lowercasedSearch) {
+                    return true
+                }
+                
+                // Check muscle groups (less common)
+                return exercise.muscleGroups.joined(separator: " ").lowercased().contains(lowercasedSearch)
+            }
+        }
+        
+        // Update filtered exercises
+        filteredExercises = result
+        
+        // Group exercises (only if we have results)
+        if !result.isEmpty {
+            var grouped = [String: [Exercise]]()
+            
+            // Group by primary muscle group
+            for exercise in result {
+                if let primaryMuscle = exercise.muscleGroups.first {
+                    if grouped[primaryMuscle] == nil {
+                        grouped[primaryMuscle] = []
+                    }
+                    grouped[primaryMuscle]?.append(exercise)
+                } else {
+                    // Handle exercises with no muscle groups
+                    let category = "Other"
+                    if grouped[category] == nil {
+                        grouped[category] = []
+                    }
+                    grouped[category]?.append(exercise)
+                }
             }
             
-            // Floating Add Button
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        showingNewExerciseView = true
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Circle().fill(Color.blue))
-                            .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 80) // Adjust for tab bar
-                }
-            }
-        }
-        .sheet(isPresented: $showingDetailView) {
-            if let exercise = selectedExercise {
-                ZStack {
-                    // Black background to prevent flashing
-                    Color.black.edgesIgnoringSafeArea(.all)
-                    
-                    ExerciseDetailView(exercise: exercise)
-                        .environmentObject(dataManager)
-                }
-            }
-        }
-        .sheet(isPresented: $showingDetailView) {
-            if let exercise = selectedExercise {
-                ZStack {
-                    // Background
-                    Color.black.edgesIgnoringSafeArea(.all)
-                    
-                    if isLoadingExercise {
-                        // Show loading spinner
-                        LoadingView(exerciseName: exercise.name)
-                    } else {
-                        // Show the actual detail view once loaded
-                        ExerciseDetailView(exercise: exercise)
-                            .environmentObject(dataManager)
-                            .transition(.opacity)
-                            .animation(.easeInOut(duration: 0.3), value: isLoadingExercise)
-                    }
-                }
-            }
+            groupedExercises = grouped
+        } else {
+            groupedExercises = [:]
         }
     }
     
@@ -257,44 +273,6 @@ struct ExercisesView: View {
 }
 
 // MARK: - Supporting Views
-
-// Loading View for Exercise Detail
-struct LoadingView: View {
-    var exerciseName: String
-    @State private var isAnimating = false
-    
-    var body: some View {
-        VStack(spacing: 24) {
-            // Animated spinner
-            ZStack {
-                Circle()
-                    .stroke(lineWidth: 4)
-                    .frame(width: 50, height: 50)
-                    .foregroundColor(Color.gray.opacity(0.3))
-                
-                Circle()
-                    .trim(from: 0, to: 0.7)
-                    .stroke(Color.blue, lineWidth: 4)
-                    .frame(width: 50, height: 50)
-                    .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
-                    .animation(
-                        Animation.linear(duration: 1)
-                            .repeatForever(autoreverses: false),
-                        value: isAnimating
-                    )
-            }
-            
-            Text("Loading \(exerciseName)...")
-                .font(.headline)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-        .onAppear {
-            isAnimating = true
-        }
-    }
-}
 
 // Muscle Group Button
 struct MuscleGroupButton: View {
@@ -348,7 +326,7 @@ struct MuscleGroupButton: View {
     }
 }
 
-// Muscle Group Section
+// Muscle Group Section - Optimized to avoid closures in loops
 struct ExerciseMuscleGroupSection: View {
     var muscleGroup: String
     var exercises: [Exercise]
@@ -382,7 +360,6 @@ struct ExerciseMuscleGroupSection: View {
             ForEach(exercises) { exercise in
                 ModernExerciseCard(
                     exercise: exercise,
-                    isExpanded: false,
                     performance: dataManager.getLastPerformance(for: exercise),
                     onTap: {
                         onSelectExercise(exercise)
@@ -435,66 +412,53 @@ struct EmptyExercisesView: View {
     }
 }
 
-// Modern Exercise Card
+// Simplified and optimized exercise card
 struct ModernExerciseCard: View {
     var exercise: Exercise
-    var isExpanded: Bool
     var performance: ExercisePerformance?
     var onTap: () -> Void
     
-    @State private var isFavorite: Bool = false
-    
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 0) {
-                // Basic info row
-                HStack(spacing: 16) {
-                    // Exercise icon
-                    ZStack {
-                        Circle()
-                            .fill(Color(.systemGray6).opacity(0.2))
-                            .frame(width: 46, height: 46)
-                        
-                        Image(systemName: getExerciseIcon(for: exercise))
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                    }
+            HStack(spacing: 16) {
+                // Exercise icon
+                ZStack {
+                    Circle()
+                        .fill(Color(.systemGray6).opacity(0.2))
+                        .frame(width: 46, height: 46)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(exercise.name)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                        
-                        Text(exercise.muscleGroups.joined(separator: ", "))
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Spacer()
-                    
-                    // Show last weight if available
-                    if let weight = performance?.lastUsedWeight {
-                        Text("\(String(format: "%.1f", weight)) kg")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue.opacity(0.2))
-                            )
-                    }
-                    
-                    // Last used date - show only if date exists
-                    if performance?.date != nil {
-                        Text(formatDate(performance!.date))
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
-                    }
+                    Image(systemName: getExerciseIcon(for: exercise))
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray)
                 }
-                .padding()
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(exercise.name)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                    
+                    Text(exercise.muscleGroups.joined(separator: ", "))
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                // Show last weight if available
+                if let weight = performance?.lastUsedWeight {
+                    Text("\(String(format: "%.1f", weight)) kg")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue.opacity(0.2))
+                        )
+                }
             }
+            .padding()
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -525,13 +489,5 @@ struct ModernExerciseCard: View {
         
         // Default icon
         return "figure.mixed.cardio"
-    }
-    
-    // Helper function to safely format date
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
     }
 }

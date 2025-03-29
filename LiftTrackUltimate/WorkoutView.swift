@@ -1,20 +1,20 @@
 import SwiftUI
 
-// Custom view for the pulsing plus button animation
+// Custom view for the pulsing plus button animation - UPDATED to be thumb-sized
 struct PulsingPlusButton: View {
     @State private var isPulsing = false
     
     var body: some View {
         ZStack {
-            // Static background circle
+            // Static background circle - increased to thumb size
             Circle()
                 .fill(Color.blue.opacity(0.3))
-                .frame(width: 40, height: 40)
+                .frame(width: 64, height: 64) // Increased from 40 to 64
             
-            // Pulsing circle
+            // Pulsing circle - increased proportionally
             Circle()
                 .stroke(Color.blue.opacity(0.5), lineWidth: 2)
-                .frame(width: 40, height: 40)
+                .frame(width: 64, height: 64) // Increased from 40 to 64
                 .scaleEffect(isPulsing ? 1.5 : 1.0)
                 .opacity(isPulsing ? 0.0 : 0.5)
                 .animation(
@@ -23,9 +23,9 @@ struct PulsingPlusButton: View {
                     value: isPulsing
                 )
             
-            // Plus icon
+            // Plus icon - significantly larger
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 32, weight: .bold)) // Increased from 20 to 32
                 .foregroundColor(.blue)
         }
         .onAppear {
@@ -165,7 +165,7 @@ struct WorkoutView: View {
                             .padding(20)
                         }
                         
-                        // Enhanced Create New Template button with pulsing animation
+                        // Enhanced Create New Template button with pulsing animation - NOW WITH LARGER BUTTON
                         Button(action: {
                             showingCreateTemplateSheet = true
                         }) {
@@ -183,7 +183,7 @@ struct WorkoutView: View {
                                 
                                 Spacer()
                                 
-                                // Animated plus icon with pulsing effect
+                                // Animated plus icon with pulsing effect - NOW LARGER
                                 PulsingPlusButton()
                                     .padding(.trailing, 16)
                             }
