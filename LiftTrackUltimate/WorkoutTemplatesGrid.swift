@@ -1,6 +1,5 @@
 import SwiftUI
 
-// Templates grid view
 struct WorkoutTemplatesGridView: View {
     var filteredTemplates: [WorkoutTemplate]
     var animateCards: Bool
@@ -89,6 +88,76 @@ struct WorkoutTemplatesGridView: View {
             
             // Pull to refresh - reload templates
             // No animation needed here since it will be redrawn
+        }
+    }
+}
+
+// Create New Template card
+struct CreateTemplateCard: View {
+    var onTap: () -> Void
+    var index: Int
+    var appear: Bool
+    @State private var isPulsing = false
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 14) {
+                // Pulsing plus icon
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                        
+                    Circle()
+                        .stroke(Color.blue.opacity(0.5), lineWidth: 2)
+                        .frame(width: 40, height: 40)
+                        .scaleEffect(isPulsing ? 1.3 : 1.0)
+                        .opacity(isPulsing ? 0.0 : 0.8)
+                        .animation(
+                            Animation.easeInOut(duration: 1.2)
+                                .repeatForever(autoreverses: false),
+                            value: isPulsing
+                        )
+                    
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                // Text content
+                Text("Create New Template")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                
+                Text("Customize your own workout routine")
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+                    .lineLimit(2)
+            }
+            .padding(16)
+            .frame(height: 160)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.blue.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+            )
+            .opacity(appear ? 1 : 0)
+            .offset(y: appear ? 0 : 20)
+            .animation(
+                .spring(response: 0.5, dampingFraction: 0.8)
+                .delay(0.1 + Double(index) * 0.05),
+                value: appear
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            // Start pulsing animation when view appears
+            isPulsing = true
         }
     }
 }

@@ -96,8 +96,14 @@ struct WorkoutView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             if let template = templateToEdit {
-                EditTemplateView(template: template)
-                    .environmentObject(dataManager)
+                // CHANGED: Using EnhancedTemplateCreationView instead of EditTemplateView
+                EnhancedTemplateCreationView(
+                    existingTemplate: template,
+                    onSave: { updatedTemplate in
+                        dataManager.updateTemplate(updatedTemplate)
+                    }
+                )
+                .environmentObject(dataManager)
             }
         }
         .sheet(isPresented: $showingCreateTemplateSheet) {

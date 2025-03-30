@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Workout template card with confirmation overlay
+// Workout template card with confirmation overlay and consistent icon styling
 struct WorkoutTemplateCard: View {
     var template: WorkoutTemplate
     var index: Int
@@ -36,13 +36,13 @@ struct WorkoutTemplateCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     // Top row with icon and menu
                     HStack(alignment: .center) {
-                        // Icon for primary muscle group
+                        // Use custom icon with template color
                         ZStack {
                             Circle()
                                 .fill(accentColor.opacity(0.2))
                                 .frame(width: 40, height: 40)
                             
-                            Image(systemName: primaryMuscleIcon)
+                            Image(systemName: templateIcon)
                                 .font(.system(size: 18))
                                 .foregroundColor(accentColor)
                         }
@@ -79,13 +79,22 @@ struct WorkoutTemplateCard: View {
                         .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
+                    // Description if available
+                    if let description = template.description, !description.isEmpty {
+                        Text(description)
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    
                     // Stats row - properly aligned
                     HStack(alignment: .center) {
                         // Exercise icon and count
                         HStack(spacing: 6) {
                             Image(systemName: "dumbbell.fill")
                                 .font(.system(size: 12))
-                                .foregroundColor(.green)
+                                .foregroundColor(accentColor)
                             
                             Text("\(template.exercises.count) exercises")
                                 .font(.system(size: 14))
@@ -106,7 +115,7 @@ struct WorkoutTemplateCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.orange)
+                            .foregroundColor(clockIconColor)
                         
                         Text("\(durationInMinutes) mins")
                             .font(.system(size: 14))
@@ -149,7 +158,7 @@ struct WorkoutTemplateCard: View {
                                         // Do nothing - prevent tap from propagating
                                     }
                                 
-                                // Stats in row with adjusted spacing - FIXED TEXT CUTOFF
+                                // Stats in row with adjusted spacing
                                 HStack(spacing: 36) { // Reduced spacing
                                     // Exercise count with better alignment
                                     VStack(spacing: 4) {
@@ -157,10 +166,10 @@ struct WorkoutTemplateCard: View {
                                             .font(.system(size: 22, weight: .bold)) // Smaller font to fit text
                                             .foregroundColor(.white)
                                         
-                                        Text("Exer...")
+                                        Text("Exercises")
                                             .font(.system(size: 11))
                                             .foregroundColor(.gray)
-                                            .fixedSize(horizontal: true, vertical: false) // Prevent truncation
+                                            .fixedSize(horizontal: true, vertical: false)
                                     }
                                     
                                     // Duration with better alignment
@@ -172,7 +181,7 @@ struct WorkoutTemplateCard: View {
                                         Text("Mins")
                                             .font(.system(size: 11))
                                             .foregroundColor(.gray)
-                                            .fixedSize(horizontal: true, vertical: false) // Prevent truncation
+                                            .fixedSize(horizontal: true, vertical: false)
                                     }
                                 }
                                 .padding(.vertical, 8) // Reduced padding
@@ -233,7 +242,7 @@ struct WorkoutTemplateCard: View {
                     .fill(Color(.systemGray6).opacity(0.15))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(isPressed ? Color.blue : accentColor.opacity(0.2), lineWidth: isPressed ? 2 : 1)
+                            .stroke(isPressed ? accentColor : accentColor.opacity(0.2), lineWidth: isPressed ? 2 : 1)
                     )
             )
             .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
@@ -250,13 +259,62 @@ struct WorkoutTemplateCard: View {
         )
     }
     
+    // Get the template icon - prioritize custom icon if available
+    private var templateIcon: String {
+        // Use custom icon if available
+        if let customIcon = template.customIcon, !customIcon.isEmpty {
+            return customIcon
+        }
+        
+        // Otherwise fall back to muscle-based icon
+        return primaryMuscleIcon
+    }
+    
     // Duration calculation directly in the card view
     private var durationInMinutes: Int {
         // Assuming ~10 minutes per exercise as a rough estimate
         return template.exercises.count * 10
     }
     
-    // Determine the primary muscle group and corresponding color
+    // Get accent color based on template's iconColor or primary muscle group
+    private var accentColor: Color {
+        // First try to use the template's saved color
+        if let colorName = template.iconColor {
+            return getColor(named: colorName)
+        }
+        
+        // Fall back to muscle-based color if no saved color
+        let mainMuscle = primaryMuscleGroup.lowercased()
+        
+        if mainMuscle.contains("chest") {
+            return .red
+        } else if mainMuscle.contains("back") {
+            return .blue
+        } else if mainMuscle.contains("shoulder") || mainMuscle.contains("delt") {
+            return .purple
+        } else if mainMuscle.contains("bicep") || mainMuscle.contains("tricep") || mainMuscle.contains("arm") {
+            return .green
+        } else if mainMuscle.contains("core") || mainMuscle.contains("ab") {
+            return .yellow
+        } else if mainMuscle.contains("leg") || mainMuscle.contains("quad") || mainMuscle.contains("hamstring") {
+            return .orange
+        } else {
+            return .blue
+        }
+    }
+    
+    // Clock icon color - orange is the default, but use accent color if it's similar to the template color
+    private var clockIconColor: Color {
+        // Only use default orange if accent color is blue or purple
+        // For other colors, keep consistent with the template accent color
+        if accentColor == .blue || accentColor == .purple {
+            return .orange
+        } else {
+            return accentColor
+        }
+    }
+    
+    // Determine the primary muscle group
     private var primaryMuscleGroup: String {
         // Count occurrences of each muscle group
         var muscleGroupCounts: [String: Int] = [:]
@@ -292,94 +350,18 @@ struct WorkoutTemplateCard: View {
         }
     }
     
-    // Get accent color based on primary muscle group
-    private var accentColor: Color {
-        let mainMuscle = primaryMuscleGroup.lowercased()
-        
-        if mainMuscle.contains("chest") {
-            return .red
-        } else if mainMuscle.contains("back") {
-            return .blue
-        } else if mainMuscle.contains("shoulder") || mainMuscle.contains("delt") {
-            return .purple
-        } else if mainMuscle.contains("bicep") || mainMuscle.contains("tricep") || mainMuscle.contains("arm") {
-            return .green
-        } else if mainMuscle.contains("core") || mainMuscle.contains("ab") {
-            return .yellow
-        } else if mainMuscle.contains("leg") || mainMuscle.contains("quad") || mainMuscle.contains("hamstring") {
-            return .orange
-        } else {
-            return .blue
-        }
-    }
-}
-
-// Create New Template card
-struct CreateTemplateCard: View {
-    var onTap: () -> Void
-    var index: Int
-    var appear: Bool
-    @State private var isPulsing = false
-    
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 14) {
-                // Pulsing plus icon
-                ZStack {
-                    Circle()
-                        .fill(Color.blue.opacity(0.2))
-                        .frame(width: 40, height: 40)
-                        
-                    Circle()
-                        .stroke(Color.blue.opacity(0.5), lineWidth: 2)
-                        .frame(width: 40, height: 40)
-                        .scaleEffect(isPulsing ? 1.3 : 1.0)
-                        .opacity(isPulsing ? 0.0 : 0.8)
-                        .animation(
-                            Animation.easeInOut(duration: 1.2)
-                                .repeatForever(autoreverses: false),
-                            value: isPulsing
-                        )
-                    
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.blue)
-                }
-                
-                Spacer()
-                
-                // Text content
-                Text("Create New Template")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                
-                Text("Customize your own workout routine")
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-                    .lineLimit(2)
-            }
-            .padding(16)
-            .frame(height: 160)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.blue.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                    )
-            )
-            .opacity(appear ? 1 : 0)
-            .offset(y: appear ? 0 : 20)
-            .animation(
-                .spring(response: 0.5, dampingFraction: 0.8)
-                .delay(0.1 + Double(index) * 0.05),
-                value: appear
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onAppear {
-            // Start pulsing animation when view appears
-            isPulsing = true
+    // Converts color name to Color object
+    func getColor(named colorName: String) -> Color {
+        switch colorName.lowercased() {
+        case "red": return Color.red
+        case "orange": return Color.orange
+        case "yellow": return Color.yellow
+        case "green": return Color.green
+        case "blue": return Color.blue
+        case "purple": return Color.purple
+        case "pink": return Color.pink
+        case "teal": return Color.teal
+        default: return Color.blue
         }
     }
 }

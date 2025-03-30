@@ -1,5 +1,43 @@
 import SwiftUI
 
+// First, add this extension to WorkoutTemplate at the top of the file
+extension WorkoutTemplate {
+    // This assumes your WorkoutTemplate already has a 'customIcon' property
+    // Add an optional iconColor property
+    var iconColor: String? {
+        get {
+            UserDefaults.standard.string(forKey: "template_color_\(id.uuidString)")
+        }
+        set {
+            if let newValue = newValue {
+                UserDefaults.standard.set(newValue, forKey: "template_color_\(id.uuidString)")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "template_color_\(id.uuidString)")
+            }
+        }
+    }
+}
+
+// Add this extension for TemplateExercise if you're getting errors about targetWeight
+extension TemplateExercise {
+    // This assumes your TemplateExercise already has properties like 'targetSets' and 'targetReps'
+    // Add an optional targetWeight property
+    var targetWeight: Double? {
+        get {
+            let key = "template_exercise_weight_\(id.uuidString)"
+            return UserDefaults.standard.object(forKey: key) as? Double
+        }
+        set {
+            let key = "template_exercise_weight_\(id.uuidString)"
+            if let newValue = newValue {
+                UserDefaults.standard.set(newValue, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+    }
+}
+
 struct TemplatesView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var showingAddTemplate = false
@@ -165,6 +203,7 @@ struct TemplatesView: View {
             }
         }
         .sheet(isPresented: $showingAddTemplate) {
+            // USING EnhancedTemplateCreationView
             EnhancedTemplateCreationView(onSave: { newTemplate in
                 // Save the new template to the data manager
                 dataManager.saveTemplate(newTemplate)
@@ -437,6 +476,7 @@ struct TabButton: View {
     }
 }
 
+// Enhanced template card with consistent styling
 struct EnhancedTemplateCard: View {
     var template: WorkoutTemplate
     var index: Int
@@ -451,14 +491,14 @@ struct EnhancedTemplateCard: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.5)]),
+                                gradient: Gradient(colors: [accentColor.opacity(0.7), accentColor.opacity(0.5)]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 40, height: 40)
                     
-                    Image(systemName: "dumbbell.fill")
+                    Image(systemName: templateIcon)
                         .font(.system(size: 16))
                         .foregroundColor(.white)
                 }
@@ -478,7 +518,7 @@ struct EnhancedTemplateCard: View {
                 HStack {
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(.blue)
+                        .foregroundColor(accentColor)
                     
                     Text("\(template.exercises.count) exercises")
                         .font(.system(size: 14))
@@ -496,7 +536,7 @@ struct EnhancedTemplateCard: View {
                 HStack {
                     Image(systemName: "clock.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(.orange)
+                        .foregroundColor(clockIconColor)
                     
                     Text("\(template.exercises.count * 10) mins")
                         .font(.system(size: 14))
@@ -513,7 +553,7 @@ struct EnhancedTemplateCard: View {
                 .fill(Color(.systemGray6).opacity(0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        .stroke(accentColor.opacity(0.2), lineWidth: 1)
                 )
         )
         .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
@@ -524,6 +564,54 @@ struct EnhancedTemplateCard: View {
             .delay(0.1 + Double(index) * 0.05),
             value: appear
         )
+    }
+    
+    // Get the template icon - prioritize custom icon if available
+    private var templateIcon: String {
+        // Use custom icon if available
+        if let customIcon = template.customIcon, !customIcon.isEmpty {
+            return customIcon
+        }
+        
+        // Otherwise fall back to default icon
+        return "dumbbell.fill"
+    }
+    
+    // Get accent color based on template's iconColor or default to blue
+    private var accentColor: Color {
+        // Get color from our extension property
+        if let colorName = template.iconColor {
+            return getColor(named: colorName)
+        }
+        
+        // Default to blue if no color is saved
+        return .blue
+    }
+    
+    // Clock icon color - orange is the default, but use accent color if it's similar to the template color
+    private var clockIconColor: Color {
+        // Only use default orange if accent color is blue or purple
+        // For other colors, keep consistent with the template accent color
+        if accentColor == .blue || accentColor == .purple {
+            return .orange
+        } else {
+            return accentColor
+        }
+    }
+    
+    // Converts color name to Color object
+    func getColor(named colorName: String) -> Color {
+        switch colorName.lowercased() {
+        case "red": return Color.red
+        case "orange": return Color.orange
+        case "yellow": return Color.yellow
+        case "green": return Color.green
+        case "blue": return Color.blue
+        case "purple": return Color.purple
+        case "pink": return Color.pink
+        case "teal": return Color.teal
+        default: return Color.blue
+        }
     }
 }
 

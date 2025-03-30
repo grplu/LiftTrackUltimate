@@ -17,101 +17,10 @@ struct TemplateDetailView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     // Template header card
-                    VStack(spacing: 16) {
-                        // Icon
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.5)]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
-                            
-                            Image(systemName: "dumbbell.fill")
-                                .font(.system(size: 30))
-                                .foregroundColor(.white)
-                        }
-                        .padding(.top, 20)
-                        
-                        // Template name
-                        Text(template.name)
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                        
-                        // Exercise count & time
-                        HStack(spacing: 20) {
-                            // Exercise count
-                            HStack(spacing: 8) {
-                                Image(systemName: "dumbbell.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.blue)
-                                
-                                Text("\(template.exercises.count) exercises")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            // Estimated time
-                            HStack(spacing: 8) {
-                                Image(systemName: "clock.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.orange)
-                                
-                                Text("\(template.exercises.count * 10) mins")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .padding(.bottom, 8)
-                        
-                        // Start workout button
-                        Button(action: {
-                            isWorkoutActive = true
-                        }) {
-                            Text("Start Workout")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(height: 56)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.green)
-                                )
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-                    }
-                    .padding(.vertical, 16)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(.systemGray6).opacity(0.2))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal)
+                    headerView
                     
                     // Exercises section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Exercises")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal)
-                        
-                        ForEach(template.exercises.indices, id: \.self) { index in
-                            ExerciseDetailRow(
-                                exercise: template.exercises[index],
-                                index: index
-                            )
-                        }
-                    }
-                    .padding(.top, 8)
+                    exercisesSection
                 }
                 .padding(.top, 16)
                 .padding(.bottom, 40)
@@ -144,13 +53,10 @@ struct TemplateDetailView: View {
             }
         }
         .sheet(isPresented: $showingEditView) {
-            EnhancedTemplateCreationView(
-                existingTemplate: template,
-                onSave: { updatedTemplate in
-                    // Update the template in the data manager
-                    dataManager.updateTemplate(updatedTemplate)
-                }
-            )
+            // Use the updated EnhancedTemplateCreationView
+            EnhancedTemplateCreationView(existingTemplate: template) { updatedTemplate in
+                dataManager.updateTemplate(updatedTemplate)
+            }
             .environmentObject(dataManager)
         }
         .sheet(isPresented: $isWorkoutActive) {
@@ -172,6 +78,116 @@ struct TemplateDetailView: View {
         } message: {
             Text("Are you sure you want to delete this template? This action cannot be undone.")
         }
+    }
+    
+    // MARK: - UI Components
+    
+    private var headerView: some View {
+        VStack(spacing: 16) {
+            // Icon - use custom icon if available
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.5)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: template.customIcon ?? "dumbbell.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(.white)
+            }
+            .padding(.top, 20)
+            
+            // Template name
+            Text(template.name)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+            
+            // Template description if available
+            if let description = template.description, !description.isEmpty {
+                Text(description)
+                    .font(.system(size: 16))
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            
+            // Exercise count & time
+            HStack(spacing: 20) {
+                // Exercise count
+                HStack(spacing: 8) {
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.blue)
+                    
+                    Text("\(template.exercises.count) exercises")
+                        .font(.system(size: 16))
+                        .foregroundColor(.gray)
+                }
+                
+                // Estimated time
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.orange)
+                    
+                    Text("\(template.exercises.count * 10) mins")
+                        .font(.system(size: 16))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.bottom, 8)
+            
+            // Start workout button
+            Button(action: {
+                isWorkoutActive = true
+            }) {
+                Text("Start Workout")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(height: 56)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.green)
+                    )
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.systemGray6).opacity(0.2))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal)
+    }
+    
+    private var exercisesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Exercises")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal)
+            
+            ForEach(template.exercises.indices, id: \.self) { index in
+                ExerciseDetailRow(
+                    exercise: template.exercises[index],
+                    index: index
+                )
+            }
+        }
+        .padding(.top, 8)
     }
 }
 
@@ -248,5 +264,20 @@ struct ExerciseDetailRow: View {
                 )
         )
         .padding(.horizontal)
+    }
+}
+
+// Preview provider for SwiftUI Canvas
+struct TemplateDetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        let sampleExercise = Exercise(name: "Bench Press", category: "Strength", muscleGroups: ["Chest"])
+        let templateExercise = TemplateExercise(exercise: sampleExercise, targetSets: 3, targetReps: 10)
+        let sampleTemplate = WorkoutTemplate(name: "Sample Workout", exercises: [templateExercise])
+        
+        return NavigationView {
+            TemplateDetailView(template: sampleTemplate)
+                .environmentObject(DataManager())
+                .preferredColorScheme(.dark)
+        }
     }
 }

@@ -200,7 +200,7 @@ struct SimpleMonthSection: View {
     }
 }
 
-// Simplified workout card without animations
+// Updated workout card with template icon
 struct SimpleHistoryWorkoutCard: View {
     var workout: AppWorkout
     
@@ -230,9 +230,23 @@ struct SimpleHistoryWorkoutCard: View {
             
             // Main content
             VStack(alignment: .leading, spacing: 8) {
-                Text(workout.name)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                // Name row with template icon
+                HStack(alignment: .center, spacing: 10) {
+                    // Use the workout's icon or fall back to generic icon
+                    ZStack {
+                        Circle()
+                            .fill(accentColor.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                        
+                        Image(systemName: workout.getIcon())
+                            .font(.system(size: 14))
+                            .foregroundColor(accentColor)
+                    }
+                    
+                    Text(workout.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                }
                 
                 // Stats row
                 HStack(spacing: 16) {
@@ -266,6 +280,15 @@ struct SimpleHistoryWorkoutCard: View {
                             .foregroundColor(.gray)
                     }
                 }
+                
+                // Show notes if available
+                if let notes = workout.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
             
             Spacer()
@@ -283,6 +306,28 @@ struct SimpleHistoryWorkoutCard: View {
     private func formatDuration(_ duration: TimeInterval) -> String {
         let minutes = Int(duration) / 60
         return "\(minutes) min"
+    }
+    
+    // Get an accent color based on the workout icon
+    private var accentColor: Color {
+        let icon = workout.getIcon()
+        
+        switch icon {
+        case "heart.fill":
+            return .red
+        case "figure.strengthtraining.traditional":
+            return .blue
+        case "person.bust":
+            return .purple
+        case "figure.arms.open":
+            return .green
+        case "figure.core.training":
+            return .yellow
+        case "figure.walk":
+            return .orange
+        default:
+            return .blue
+        }
     }
 }
 
