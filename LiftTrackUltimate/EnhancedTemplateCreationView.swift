@@ -15,7 +15,7 @@ struct EnhancedTemplateCreationView: View {
     @State private var showingExerciseSelection = false
     @State private var selectedIcon = "dumbbell.fill" // Default icon
     @State private var selectedColor = "blue" // Default color
-    @State private var showingIconSelector = false
+    @State private var showingIconSheet = false // New variable for icon sheet
     
     // Grid layout for colors and icons
     private let columns = [
@@ -69,11 +69,6 @@ struct EnhancedTemplateCreationView: View {
                     navigationButtons
                         .padding()
                 }
-                
-                // Sheet-like icon and color selector that slides up from bottom
-                if showingIconSelector {
-                    iconSelectorOverlay
-                }
             }
             .navigationBarTitle("", displayMode: .inline)
             .toolbar {
@@ -91,6 +86,13 @@ struct EnhancedTemplateCreationView: View {
                         .font(.headline)
                         .foregroundColor(.white)
                 }
+            }
+            .sheet(isPresented: $showingIconSheet) {
+                IconSelectorSheet(
+                    selectedIcon: $selectedIcon,
+                    selectedColor: $selectedColor
+                )
+                .preferredColorScheme(.dark)
             }
             .sheet(isPresented: $showingExerciseSelection) {
                 ExerciseSelectionView { exercise in
@@ -127,128 +129,6 @@ struct EnhancedTemplateCreationView: View {
         }
     }
     
-    // Icon selector overlay
-    private var iconSelectorOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .edgesIgnoringSafeArea(.all)
-                .onTapGesture {
-                    withAnimation(.spring()) {
-                        showingIconSelector = false
-                    }
-                }
-            
-            VStack(spacing: 16) {
-                // Handle indicator
-                Rectangle()
-                    .fill(Color.gray.opacity(0.5))
-                    .frame(width: 60, height: 5)
-                    .cornerRadius(2.5)
-                    .padding(.top, 10)
-                
-                Text("Choose Icon & Color")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.bottom, 8)
-                
-                // Color selector
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Color")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                        .padding(.leading, 4)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 16) {
-                            ForEach(iconColors, id: \.name) { colorOption in
-                                Button(action: {
-                                    selectedColor = colorOption.name
-                                }) {
-                                    Circle()
-                                        .fill(colorOption.color)
-                                        .frame(width: 40, height: 40)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.white, lineWidth: selectedColor == colorOption.name ? 2 : 0)
-                                                .padding(1)
-                                        )
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 4)
-                    }
-                }
-                .padding(.vertical, 8)
-                
-                // Icon selector grid
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Icon")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                        .padding(.leading, 4)
-                    
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(iconOptions, id: \.icon) { option in
-                                Button(action: {
-                                    selectedIcon = option.icon
-                                }) {
-                                    VStack(spacing: 8) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(selectedIcon == option.icon ? getColor(named: selectedColor) : Color(.systemGray6).opacity(0.2))
-                                                .frame(width: 60, height: 60)
-                                            
-                                            Image(systemName: option.icon)
-                                                .font(.system(size: 24))
-                                                .foregroundColor(selectedIcon == option.icon ? .white : .gray)
-                                        }
-                                        
-                                        Text(option.name)
-                                            .font(.caption)
-                                            .foregroundColor(selectedIcon == option.icon ? .white : .gray)
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.8)
-                                    }
-                                    .frame(width: 80)
-                                }
-                            }
-                        }
-                        .padding(4)
-                    }
-                    .frame(height: 300)
-                }
-                
-                Button(action: {
-                    withAnimation(.spring()) {
-                        showingIconSelector = false
-                    }
-                }) {
-                    Text("Done")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(getColor(named: selectedColor))
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.systemGray6).opacity(0.95))
-            )
-            .padding(.horizontal)
-            .frame(maxHeight: 500)
-            .transition(.move(edge: .bottom))
-            .offset(y: showingIconSelector ? 0 : UIScreen.main.bounds.height)
-            .animation(.spring(), value: showingIconSelector)
-            .edgesIgnoringSafeArea(.bottom)
-            .position(x: UIScreen.main.bounds.width/2, y: UIScreen.main.bounds.height - 250)
-        }
-    }
-    
     // MARK: - Step Sections
     
     // Step 1: Basic Info
@@ -256,11 +136,9 @@ struct EnhancedTemplateCreationView: View {
         VStack(spacing: 24) {
             // Template icon selection
             VStack(spacing: 16) {
-                // Current selected icon
+                // Current selected icon - button now shows the icon sheet
                 Button(action: {
-                    withAnimation(.spring()) {
-                        showingIconSelector = true
-                    }
+                    showingIconSheet = true
                 }) {
                     VStack(spacing: 12) {
                         ZStack {
