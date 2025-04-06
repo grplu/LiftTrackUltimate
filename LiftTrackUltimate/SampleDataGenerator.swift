@@ -68,17 +68,17 @@ class SampleDataGenerator {
                     WorkoutExercise(
                         exercise: exercises[0],
                         sets: [
-                            ExerciseSet(reps: 10, weight: 135, completed: true),
-                            ExerciseSet(reps: 10, weight: 135, completed: true),
-                            ExerciseSet(reps: 8, weight: 135, completed: true)
+                            ExerciseSet(weight: 135, reps: 10, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 135, reps: 10, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 135, reps: 8, completed: true, formQuality: .good)
                         ]
                     ),
                     WorkoutExercise(
                         exercise: exercises[3],
                         sets: [
-                            ExerciseSet(reps: 8, weight: 0, completed: true),
-                            ExerciseSet(reps: 8, weight: 0, completed: true),
-                            ExerciseSet(reps: 6, weight: 0, completed: true)
+                            ExerciseSet(weight: 0, reps: 8, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 0, reps: 8, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 0, reps: 6, completed: true, formQuality: .perfect)
                         ]
                     )
                 ]
@@ -91,7 +91,7 @@ class SampleDataGenerator {
                     WorkoutExercise(
                         exercise: exercises[5],
                         sets: [
-                            ExerciseSet(duration: 1800, distance: 5.0, completed: true)
+                            ExerciseSet(duration: 1800, distance: 5.0, completed: true, formQuality: .perfect)
                         ]
                     )
                 ]
@@ -104,9 +104,9 @@ class SampleDataGenerator {
                     WorkoutExercise(
                         exercise: exercises[1],
                         sets: [
-                            ExerciseSet(reps: 10, weight: 185, completed: true),
-                            ExerciseSet(reps: 10, weight: 185, completed: true),
-                            ExerciseSet(reps: 8, weight: 205, completed: true)
+                            ExerciseSet(weight: 185, reps: 10, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 185, reps: 10, completed: true, formQuality: .good),
+                            ExerciseSet(weight: 205, reps: 8, completed: true, formQuality: .perfect)
                         ]
                     )
                 ]

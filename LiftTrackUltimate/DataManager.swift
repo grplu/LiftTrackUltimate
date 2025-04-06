@@ -8,7 +8,7 @@ extension Notification.Name {
 class DataManager: ObservableObject {
     static let shared = DataManager()
     
-    @Published var profile: UserProfile = UserProfile(name: "User", fitnessGoal: "Build Muscle")
+    @Published private(set) var profile: UserProfile
     @Published var workouts: [AppWorkout] = []
     @Published var exercises: [Exercise] = []
     @Published var templates: [WorkoutTemplate] = []
@@ -53,6 +53,10 @@ class DataManager: ObservableObject {
     private let debugLoggingEnabled = false
     
     init() {
+        // Initialize with empty profile first
+        self.profile = UserProfile()
+        
+        // Load all data
         loadProfile()
         loadWorkouts()
         loadExercises()
@@ -83,7 +87,7 @@ class DataManager: ObservableObject {
         }
     }
     
-    private func clearCaches() {
+    func clearCaches() {
         workoutDataCache.removeAll()
         performanceCache.removeAll()
         weeklyProgressCache.removeAll()
@@ -145,16 +149,38 @@ class DataManager: ObservableObject {
     // MARK: - Profile Management
     
     func loadProfile() {
-        if let data = UserDefaults.standard.data(forKey: profileKey),
-           let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            self.profile = profile
+        if let data = UserDefaults.standard.data(forKey: profileKey) {
+            do {
+                let decoder = JSONDecoder()
+                let decodedProfile = try decoder.decode(UserProfile.self, from: data)
+                DispatchQueue.main.async {
+                    self.profile = decodedProfile
+                    Task { @MainActor in
+                        ProfileViewViewModel.shared.updateProfile(decodedProfile)
+                    }
+                }
+            } catch {
+                print("Error decoding profile: \(error)")
+                let newProfile = UserProfile()
+                DispatchQueue.main.async {
+                    self.profile = newProfile
+                    Task { @MainActor in
+                        ProfileViewViewModel.shared.updateProfile(newProfile)
+                    }
+                }
+            }
         }
     }
     
-    func saveProfile(_ profile: UserProfile) {
-        self.profile = profile
-        if let encodedData = try? JSONEncoder().encode(profile) {
-            UserDefaults.standard.set(encodedData, forKey: profileKey)
+    func updateProfile(_ newProfile: UserProfile) {
+        DispatchQueue.main.async {
+            self.profile = newProfile
+            if let encodedData = try? JSONEncoder().encode(newProfile) {
+                UserDefaults.standard.set(encodedData, forKey: self.profileKey)
+                Task { @MainActor in
+                    ProfileViewViewModel.shared.updateProfile(newProfile)
+                }
+            }
         }
     }
     
@@ -391,16 +417,6 @@ class DataManager: ObservableObject {
         
         // Save to UserDefaults
         saveExercisePerformances()
-        
-        // Update profile's exercise memory if a profile exists
-        var updatedProfile = profile
-        updatedProfile.updateExerciseMemory(
-            exerciseId: performance.exerciseId,
-            reps: performance.lastUsedReps,
-            sets: performance.totalSets > 0 ? performance.totalSets : nil,
-            weight: performance.lastUsedWeight
-        )
-        saveProfile(updatedProfile)
         
         // Notify observers about the workout data change
         debugLog("saveExercisePerformance - Posting workoutDataChanged notification")
@@ -729,5 +745,13 @@ class DataManager: ObservableObject {
         
         self.templates = [upperBodyTemplate, lowerBodyTemplate, pushTemplate, pullTemplate, coreTemplate]
         saveTemplates()
+    }
+    
+    // Replace profileViewViewModel property with a method
+    func updateProfileViewModel() {
+        Task { @MainActor in
+            // Update the shared ProfileViewViewModel with the current profile
+            ProfileViewViewModel.shared.updateProfile(profile)
+        }
     }
 }

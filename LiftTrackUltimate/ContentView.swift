@@ -9,8 +9,7 @@ struct ContentView: View {
             ZStack(alignment: .bottom) {
                 // Main content
                 TabView(selection: $selectedTab) {
-                    // CHANGED: Don't pass any viewModel to ProfileView
-                    ProfileView()
+                    UserProfileView()
                         .tag(0)
                     
                     HistoryView()
@@ -82,11 +81,8 @@ struct ContentView: View {
             // Reset any problematic UIKit settings
             resetScrollViewAppearance()
             
-            // Initialize the ProfileViewModel with the user profile from DataManager
-            ProfileViewModel.shared.userProfile = dataManager.profile
-            ProfileViewModel.shared.saveProfile = {
-                self.dataManager.profile = ProfileViewModel.shared.userProfile
-            }
+            // Initialize the ProfileViewViewModel with the user profile from DataManager
+            ProfileViewViewModel.shared.updateProfile(dataManager.profile)
         }
     }
     

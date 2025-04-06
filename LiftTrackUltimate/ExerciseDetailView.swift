@@ -545,8 +545,10 @@ struct ExerciseHistoryTab: View {
                     var setsDescription = ""
                     
                     for (index, set) in completedSets.enumerated() {
-                        if let weight = set.weight, let reps = set.reps {
-                            setsDescription += "\(String(format: "%.1f", weight))kg × \(reps)"
+                        if let weight = set.weight {
+                            // Ensure reps is treated as a non-optional Int
+                            let repsValue = set.reps
+                            setsDescription += "\(String(format: "%.1f", weight))kg × \(repsValue)"
                             if index < completedSets.count - 1 {
                                 setsDescription += ", "
                             }
@@ -679,7 +681,9 @@ struct ExerciseRecordsTab: View {
             var totalVolume: Double = 0
             
             for i in 0..<min(performance.setWeights.count, performance.setReps.count) {
-                if let weight = performance.setWeights[i], let reps = performance.setReps[i] {
+                let weight = performance.setWeights[i]
+                let reps = performance.setReps[i]
+                if let weight = weight, let reps = reps {
                     totalVolume += weight * Double(reps)
                 }
             }
@@ -697,15 +701,16 @@ struct ExerciseRecordsTab: View {
         
         // Estimate 1RM if we have both weight and reps
         if let maxWeight = performance.setWeights.compactMap({ $0 }).max(),
-           let reps = performance.setReps.first, let repsValue = reps, repsValue > 0 && repsValue < 10 {
+           let firstReps = performance.setReps.first, 
+           let reps = firstReps, reps > 0 && reps < 10 {
             
             // Use Brzycki formula: 1RM = Weight × (36 / (37 - reps))
-            let oneRM = maxWeight * (36.0 / (37.0 - Double(repsValue)))
+            let oneRM = maxWeight * (36.0 / (37.0 - Double(reps)))
             
             recordsList.append(ExerciseRecord(
                 title: "Estimated 1RM",
                 value: "\(String(format: "%.1f", oneRM)) kg",
-                date: "Based on \(String(format: "%.1f", maxWeight))kg × \(repsValue) reps",
+                date: "Based on \(String(format: "%.1f", maxWeight))kg × \(reps) reps",
                 icon: "star.circle.fill",
                 iconColor: .yellow
             ))

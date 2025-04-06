@@ -233,12 +233,10 @@ struct EnhancedExerciseCard: View {
                             
                             Spacer()
                             
-                            if let reps = set.reps {
-                                Text("\(reps) reps")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(.white)
-                                    .frame(width: 70, alignment: .trailing)
-                            }
+                            Text("\(set.reps) reps")
+                                .font(.system(size: 15))
+                                .foregroundColor(.white)
+                                .frame(width: 70, alignment: .trailing)
                             
                             if let weight = set.weight {
                                 Text("\(String(format: "%.1f", weight)) kg")

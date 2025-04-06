@@ -30,9 +30,10 @@ struct AppWorkout: Identifiable, Codable {
         var muscleGroupCounts: [String: Int] = [:]
         
         for exercise in exercises {
-            for muscleGroup in exercise.exercise.muscleGroups {
-                muscleGroupCounts[muscleGroup, default: 0] += 1
-            }
+            // Update to use the exercise name since we don't have direct access to muscle groups
+            // This is a temporary solution - we should update this later to properly track muscle groups
+            let muscleGroup = exercise.name.components(separatedBy: " ").first ?? "Mixed"
+            muscleGroupCounts[muscleGroup, default: 0] += 1
         }
         
         // Get the primary muscle group
@@ -56,19 +57,4 @@ struct AppWorkout: Identifiable, Codable {
             return "figure.mixed.cardio"
         }
     }
-}
-
-struct WorkoutExercise: Identifiable, Codable {
-    var id = UUID()
-    var exercise: Exercise
-    var sets: [ExerciseSet]
-}
-
-struct ExerciseSet: Identifiable, Codable {
-    var id = UUID()
-    var reps: Int?
-    var weight: Double?
-    var duration: TimeInterval?
-    var distance: Double?
-    var completed: Bool = false
 }

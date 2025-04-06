@@ -20,9 +20,10 @@ extension DataManager {
                 let reps = templateExercise.targetReps ?? lastPerformance?.lastUsedReps ?? 10
                 let weight = lastPerformance?.lastUsedWeight
                 
+                // Create the set with parameters in correct order
                 let set = ExerciseSet(
-                    reps: reps,
                     weight: weight,
+                    reps: reps,
                     completed: false
                 )
                 sets.append(set)

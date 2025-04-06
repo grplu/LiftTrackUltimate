@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import UIKit
 
 // Define notification names for workout session events
 extension Notification.Name {
@@ -13,79 +14,63 @@ extension Notification.Name {
 class WorkoutSessionManager: ObservableObject {
     static let shared = WorkoutSessionManager()
     
+    private let dataService: DataService
+    private var cancellables = Set<AnyCancellable>()
+    
     // Published properties
-    @Published var isWorkoutActive: Bool = false
+    @Published var isActive = false
     @Published var workoutName: String = "Quick Workout"
-    @Published var startTime: Date = Date()
+    @Published var startTime: Date?
     @Published var elapsedTime: TimeInterval = 0
-    @Published var isTimerPaused: Bool = false
+    @Published var isTimerPaused = false
     @Published var exercises: [WorkoutExercise] = []
-    @Published var heartRate: Int = Int.random(in: 65...85) // Mock heart rate
+    @Published var currentRestTimer: TimeInterval?
+    @Published var error: Error?
+    @Published var heartRate: Int = 70 // Default heart rate
     
-    // Private properties
-    private var timer: Timer? = nil
-    private var heartRateTimer: Timer? = nil
+    // Timer properties
+    private var timer: Timer?
+    private var heartRateTimer: Timer?
+    private var lastTimestamp: Date?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    private var lastTimestamp: Date? = nil
     
-    // Timer update frequency (in seconds)
-    private let timerInterval: TimeInterval = 1.0
-    
-    private init() {
-        // Add app lifecycle observers
+    init(dataService: DataService = LocalDataService.shared) {
+        self.dataService = dataService
         setupAppLifecycleObservers()
     }
     
     // MARK: - Public Methods
     
     /// Start a new workout session
-    func startWorkout(template: WorkoutTemplate? = nil) {
-        // Reset and initialize workout state
-        if let template = template {
-            workoutName = template.name
-        } else {
-            workoutName = "Quick Workout"
+    func startWorkout(name: String? = nil, template: WorkoutTemplate? = nil) {
+        resetWorkoutState()
+        
+        if let name = name {
+            workoutName = name
         }
         
-        startTime = Date()
-        elapsedTime = 0
-        isTimerPaused = false
-        exercises = []
-        
-        // Initialize workout from template if provided
         if let template = template {
             initializeFromTemplate(template)
         }
         
-        // Start timers
+        isActive = true
+        startTime = Date()
         startTimers()
         
-        // Set workout as active
-        isWorkoutActive = true
-        
-        // Notify observers
         NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     /// Pause the current workout session
     func pauseWorkout() {
-        guard isWorkoutActive else { return }
-        
         isTimerPaused = true
         stopTimers()
-        
-        // Notify observers
         NotificationCenter.default.post(name: .workoutSessionPaused, object: nil)
     }
     
     /// Resume the paused workout session
     func resumeWorkout() {
-        guard isWorkoutActive && isTimerPaused else { return }
-        
         isTimerPaused = false
         startTimers()
-        
-        // Notify observers
         NotificationCenter.default.post(name: .workoutSessionResumed, object: nil)
     }
     
@@ -99,129 +84,130 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     /// Complete and save the current workout
-    func completeWorkout(dataManager: DataManager) {
-        guard isWorkoutActive else { return }
+    func completeWorkout() {
+        guard isActive else { return }
         
-        // Stop timers
-        stopTimers()
-        
-        // Create the completed workout
-        let completedWorkout = AppWorkout(
-            id: UUID(),
+        let workout = AppWorkout(
             name: workoutName,
-            date: startTime,
+            date: startTime ?? Date(),
             duration: elapsedTime,
             exercises: exercises
         )
         
-        // Save the workout data
-        dataManager.saveWorkout(completedWorkout)
-        
-        // Save performance data for each exercise
-        for exercise in exercises {
-            dataManager.saveExercisePerformance(from: exercise)
+        do {
+            try dataService.saveWorkout(workout)
+            resetWorkoutState()
+            NotificationCenter.default.post(name: .workoutSessionCompleted, object: nil)
+        } catch {
+            self.error = error
         }
-        
-        // Reset workout state
-        resetWorkoutState()
-        
-        // Notify observers
-        NotificationCenter.default.post(name: .workoutSessionCompleted, object: nil)
     }
     
     /// Cancel the current workout without saving
     func cancelWorkout() {
-        guard isWorkoutActive else { return }
-        
-        // Stop timers
-        stopTimers()
-        
-        // Reset workout state
         resetWorkoutState()
-        
-        // Notify observers (using the same notification as completion for simplicity)
-        NotificationCenter.default.post(name: .workoutSessionCompleted, object: nil)
     }
     
     /// Add an exercise to the current workout
     func addExercise(_ exercise: Exercise) {
-        // Default to 3 sets of 10 reps
-        let sets = [
-            ExerciseSet(reps: 10, weight: nil),
-            ExerciseSet(reps: 10, weight: nil),
-            ExerciseSet(reps: 10, weight: nil)
-        ]
-        
-        let workoutExercise = WorkoutExercise(exercise: exercise, sets: sets)
+        let workoutExercise = WorkoutExercise(exercise: exercise)
         exercises.append(workoutExercise)
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+    }
+    
+    /// Remove an exercise from the current workout
+    func removeExercise(at index: Int) {
+        guard exercises.indices.contains(index) else { return }
+        exercises.remove(at: index)
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+    }
+    
+    /// Move an exercise from one position to another
+    func moveExercise(from source: Int, to destination: Int) {
+        guard source != destination,
+              exercises.indices.contains(source),
+              exercises.indices.contains(destination) else { return }
         
-        // Notify observers
+        let exercise = exercises.remove(at: source)
+        exercises.insert(exercise, at: destination)
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+    }
+    
+    /// Update a set in an exercise
+    func updateSet(_ set: ExerciseSet, at setIndex: Int, in exerciseIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex) else { return }
+        
+        exercises[exerciseIndex].sets[setIndex] = set
         NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     /// Add a set to an exercise
-    func addSet(to exercise: WorkoutExercise) {
-        if let index = exercises.firstIndex(where: { $0.id == exercise.id }) {
-            // Get the last set (if any)
-            let lastSet = exercises[index].sets.last
-            
-            // Create new set with parameters from last set
-            let reps = lastSet?.reps ?? 10
-            let weight = lastSet?.weight
-            
-            let newSet = ExerciseSet(reps: reps, weight: weight)
-            
-            exercises[index].sets.append(newSet)
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
-        }
+    func addSet(to exerciseIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex) else { return }
+        
+        let lastSet = exercises[exerciseIndex].sets.last
+        let newSet = ExerciseSet(
+            weight: lastSet?.weight,
+            reps: lastSet?.reps ?? 10,
+            completed: false,
+            formQuality: .good
+        )
+        
+        exercises[exerciseIndex].sets.append(newSet)
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
-    /// Delete a set from an exercise
-    func deleteSet(from exercise: WorkoutExercise, at setIndex: Int) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count,
-           exercises[exerciseIndex].sets.count > 1 { // Ensure we don't delete the last set
-            // Remove the set at the specified index
-            exercises[exerciseIndex].sets.remove(at: setIndex)
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
-        }
+    /// Remove a set from an exercise
+    func removeSet(at setIndex: Int, from exerciseIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex),
+              exercises[exerciseIndex].sets.count > 1 else { return }
+        
+        exercises[exerciseIndex].sets.remove(at: setIndex)
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     /// Toggle completion status of a set
-    func toggleSetCompletion(for exercise: WorkoutExercise, setIndex: Int, isComplete: Bool) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].completed = isComplete
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
-        }
+    func toggleSetCompletion(for exerciseIndex: Int, setIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex) else { return }
+        
+        exercises[exerciseIndex].sets[setIndex].completed.toggle()
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     /// Update weight for a set
-    func updateWeight(for exercise: WorkoutExercise, setIndex: Int, weight: Double?) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].weight = weight
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
-        }
+    func updateWeight(_ weight: Double?, for exerciseIndex: Int, setIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex) else { return }
+        
+        exercises[exerciseIndex].sets[setIndex].weight = weight
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     /// Update reps for a set
-    func updateReps(for exercise: WorkoutExercise, setIndex: Int, reps: Int?) {
-        if let exerciseIndex = exercises.firstIndex(where: { $0.id == exercise.id }),
-           setIndex < exercises[exerciseIndex].sets.count {
-            exercises[exerciseIndex].sets[setIndex].reps = reps
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
-        }
+    func updateReps(_ reps: Int, for exerciseIndex: Int, setIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex) else { return }
+        
+        exercises[exerciseIndex].sets[setIndex].reps = reps
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+    }
+    
+    /// Update form quality for a set
+    func updateFormQuality(_ quality: FormQuality, for exerciseIndex: Int, setIndex: Int) {
+        guard exercises.indices.contains(exerciseIndex),
+              exercises[exerciseIndex].sets.indices.contains(setIndex) else { return }
+        
+        exercises[exerciseIndex].sets[setIndex].formQuality = quality
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+    }
+    
+    /// Update elapsed time manually (for when the app comes back from background)
+    func updateElapsedTime(_ newElapsedTime: TimeInterval) {
+        elapsedTime = newElapsedTime
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     // MARK: - Private Methods
@@ -236,17 +222,17 @@ class WorkoutSessionManager: ObservableObject {
             var exerciseSets: [ExerciseSet] = []
             
             for i in 0..<templateExercise.targetSets {
-                // CHANGED: Get specific set data from the DataManager instead of just the default values
-                let dataManager = DataManager.shared
+                // Use default values if DataManager is not available
+                let reps = templateExercise.targetReps ?? 10
+                let weight: Double? = nil
                 
-                // Try to get the specific reps used for this set in the past
-                let reps = dataManager.getSetReps(for: templateExercise.exercise, setIndex: i) ?? templateExercise.targetReps ?? 10
-                
-                // Try to get the specific weight used for this set in the past
-                let weight = dataManager.getSetWeight(for: templateExercise.exercise, setIndex: i)
-                
-                // Create a new set with historical values (or defaults if not available)
-                let newSet = ExerciseSet(reps: reps, weight: weight)
+                // Create a new set with default values
+                let newSet = ExerciseSet(
+                    weight: weight,
+                    reps: reps,
+                    completed: false,
+                    formQuality: .good
+                )
                 exerciseSets.append(newSet)
             }
             
@@ -257,24 +243,12 @@ class WorkoutSessionManager: ObservableObject {
     
     /// Start timer and heart rate simulation
     private func startTimers() {
-        // Start main timer
         lastTimestamp = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] _ in
-            guard let self = self, !self.isTimerPaused else { return }
-            
-            // Calculate elapsed time since last update
-            let now = Date()
-            if let lastTimestamp = self.lastTimestamp {
-                let timeSinceLastUpdate = now.timeIntervalSince(lastTimestamp)
-                self.elapsedTime += timeSinceLastUpdate
-            }
-            self.lastTimestamp = now
-            
-            // Notify observers
-            NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
+        
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateElapsedTime()
         }
         
-        // Make sure timer runs even when scrolling
         RunLoop.current.add(timer!, forMode: .common)
         
         // Start heart rate simulation
@@ -282,12 +256,9 @@ class WorkoutSessionManager: ObservableObject {
             guard let self = self else { return }
             // Simulate slight heart rate changes
             self.heartRate = max(60, min(180, self.heartRate + Int.random(in: -3...5)))
-            
-            // Notify observers
             NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
         }
         
-        // Make heart rate timer run even when scrolling
         RunLoop.current.add(heartRateTimer!, forMode: .common)
     }
     
@@ -296,11 +267,9 @@ class WorkoutSessionManager: ObservableObject {
         // Update elapsed time one final time
         if let lastTimestamp = lastTimestamp, !isTimerPaused {
             let now = Date()
-            let timeSinceLastUpdate = now.timeIntervalSince(lastTimestamp)
-            elapsedTime += timeSinceLastUpdate
+            elapsedTime += now.timeIntervalSince(lastTimestamp)
         }
         
-        // Invalidate timers
         timer?.invalidate()
         timer = nil
         
@@ -312,10 +281,14 @@ class WorkoutSessionManager: ObservableObject {
     
     /// Reset the workout state
     private func resetWorkoutState() {
-        isWorkoutActive = false
+        isActive = false
         isTimerPaused = false
+        workoutName = "Quick Workout"
+        startTime = nil
         elapsedTime = 0
         exercises = []
+        currentRestTimer = nil
+        stopTimers()
     }
     
     // MARK: - App Lifecycle Management
@@ -352,83 +325,75 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     @objc private func appWillResignActive() {
-        // When app is no longer active (switching apps, receiving call, etc.)
         print("App will resign active - ensuring workout session state is saved")
-        
-        // Store current timestamp for accurate time tracking
         lastTimestamp = Date()
+        beginBackgroundTask()
     }
     
     @objc private func appDidBecomeActive() {
-        // When app becomes active again
         print("App did become active - resuming workout session if active")
         
-        if isWorkoutActive && !isTimerPaused {
-            // Calculate elapsed time since last timestamp
+        if isActive && !isTimerPaused {
             if let lastTimestamp = lastTimestamp {
                 let now = Date()
-                let additionalTime = now.timeIntervalSince(lastTimestamp)
-                elapsedTime += additionalTime
+                elapsedTime += now.timeIntervalSince(lastTimestamp)
                 self.lastTimestamp = now
-                
-                // Notify observers
                 NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
             }
         }
+        
+        endBackgroundTask()
     }
     
     @objc private func appDidEnterBackground() {
-        // When app enters background
         print("App did enter background - beginning background task for workout session")
-        
-        // Start background task to get additional execution time
         beginBackgroundTask()
-        
-        // Store current timestamp
         lastTimestamp = Date()
     }
     
     @objc private func appWillEnterForeground() {
-        // When app will enter foreground
         print("App will enter foreground - updating workout session time")
         
-        if isWorkoutActive && !isTimerPaused {
-            // Calculate elapsed time since last timestamp
+        if isActive && !isTimerPaused {
             if let lastTimestamp = lastTimestamp {
                 let now = Date()
-                let additionalTime = now.timeIntervalSince(lastTimestamp)
-                elapsedTime += additionalTime
+                elapsedTime += now.timeIntervalSince(lastTimestamp)
                 self.lastTimestamp = now
-                
-                // Notify observers
                 NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
             }
         }
         
-        // End background task if one was started
         endBackgroundTask()
+    }
+    
+    // MARK: - Timer Management
+    
+    /// Update the elapsed time for the timer
+    private func updateElapsedTime() {
+        guard isActive, !isTimerPaused, let lastTimestamp = lastTimestamp else { return }
+        
+        let now = Date()
+        elapsedTime += now.timeIntervalSince(lastTimestamp)
+        self.lastTimestamp = now
+        
+        NotificationCenter.default.post(name: .workoutSessionUpdated, object: nil)
     }
     
     // MARK: - Background Task Management
     
     /// Begin a background task to keep timing accurate
     private func beginBackgroundTask() {
-        // End any existing background task first
         endBackgroundTask()
         
-        // Start a new background task
         backgroundTask = UIApplication.shared.beginBackgroundTask { [weak self] in
-            // Time expired, end the task
             self?.endBackgroundTask()
         }
     }
     
     /// End the current background task
     private func endBackgroundTask() {
-        // Only end the task if it's valid
-        if backgroundTask != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTask)
-            backgroundTask = .invalid
-        }
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
     }
 }

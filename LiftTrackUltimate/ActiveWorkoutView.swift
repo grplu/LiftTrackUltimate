@@ -27,6 +27,9 @@ struct ActiveWorkoutView: View {
     @State private var celebrate: Bool = false
     @State private var lastCompletionPercentage: Double = 0 // Track previous value
     
+    // Observer for notifications
+    @State private var workoutCompletionObserver: Any? = nil
+    
     init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
         self.template = template
         self.onEnd = onEnd
@@ -196,7 +199,9 @@ struct ActiveWorkoutView: View {
                             ExerciseCard(
                                 exercise: exercise,
                                 onSetComplete: { setIndex, isComplete in
-                                    sessionManager.toggleSetCompletion(for: exercise, setIndex: setIndex, isComplete: isComplete)
+                                    if let exerciseIndex = sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) {
+                                        sessionManager.toggleSetCompletion(for: exerciseIndex, setIndex: setIndex)
+                                    }
                                     
                                     // Haptic feedback when set is completed
                                     if isComplete {
@@ -210,7 +215,7 @@ struct ActiveWorkoutView: View {
                                     feedback.impactOccurred()
                                     
                                     // Add the set
-                                    sessionManager.addSet(to: exercise)
+                                    sessionManager.addSet(to: sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) ?? 0)
                                     
                                     // Trigger animation
                                     withAnimation {
@@ -234,7 +239,9 @@ struct ActiveWorkoutView: View {
                                     
                                     // Remove the set after a slight delay to allow animation
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        sessionManager.deleteSet(from: exercise, at: setIndex)
+                                        if let exerciseIndex = sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) {
+                                            sessionManager.removeSet(at: setIndex, from: exerciseIndex)
+                                        }
                                         
                                         // Reset animation state after delay
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -243,10 +250,16 @@ struct ActiveWorkoutView: View {
                                     }
                                 },
                                 onUpdateWeight: { setIndex, weight in
-                                    sessionManager.updateWeight(for: exercise, setIndex: setIndex, weight: weight)
+                                    if let exerciseIndex = sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) {
+                                        sessionManager.updateWeight(weight, for: exerciseIndex, setIndex: setIndex)
+                                    }
                                 },
                                 onUpdateReps: { setIndex, reps in
-                                    sessionManager.updateReps(for: exercise, setIndex: setIndex, reps: reps)
+                                    if let exerciseIndex = sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) {
+                                        if let repsValue = reps {
+                                            sessionManager.updateReps(repsValue, for: exerciseIndex, setIndex: setIndex)
+                                        }
+                                    }
                                 },
                                 dataManager: dataManager,
                                 focusedField: $focusedField,
@@ -434,23 +447,43 @@ struct ActiveWorkoutView: View {
             UITextField.appearance().tintColor = .white // Set cursor color to white
             
             // Start new workout session if needed
-            if !sessionManager.isWorkoutActive {
+            if !sessionManager.isActive {
                 sessionManager.startWorkout(template: template)
             }
             
             // Set up completion notification observer
-            NotificationCenter.default.addObserver(
-                forName: .workoutSessionCompleted,
-                object: nil,
-                queue: .main
-            ) { [self] _ in
-                onEnd()
-                dismiss()
-            }
+            setupNotificationObserver()
         }
         .onDisappear {
             // Remove the notification observer
-            NotificationCenter.default.removeObserver(self, name: .workoutSessionCompleted, object: nil)
+            cleanupNotificationObserver()
+        }
+    }
+    
+    // Setup notification observer
+    private func setupNotificationObserver() {
+        let notificationName = Notification.Name.workoutSessionCompleted
+        workoutCompletionObserver = NotificationCenter.default.addObserver(
+            forName: notificationName,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.onEnd()
+            self.dismiss()
+        }
+    }
+    
+    // Clean up notification observer
+    private func cleanupNotificationObserver() {
+        // Store observer in local variable first
+        let observerToRemove = workoutCompletionObserver
+        
+        // Set property to nil first
+        workoutCompletionObserver = nil
+        
+        // Then remove the observer if it exists
+        if let observer = observerToRemove {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
     
@@ -461,18 +494,30 @@ struct ActiveWorkoutView: View {
     
     // Complete the workout with animation
     private func completeWorkout() {
-        // Show completion animation
-        showingCompletionAnimation = true
+        // Don't allow completing if no exercises or all exercises are empty
+        let hasCompletedSets = sessionManager.exercises.contains { exercise in
+            exercise.sets.contains { $0.completed }
+        }
         
-        // Short delay to allow animation to play, then complete the workout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            showingCompletionAnimation = false
-            
-            // After animation is hidden, complete the workout
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                sessionManager.completeWorkout(dataManager: dataManager)
-                // View will be dismissed by notification observer
-            }
+        if sessionManager.exercises.isEmpty || !hasCompletedSets {
+            let feedback = UINotificationFeedbackGenerator()
+            feedback.notificationOccurred(.error)
+            return
+        }
+        
+        // Show completion animation
+        withAnimation {
+            showingCompletionAnimation = true
+        }
+        
+        // After animation is hidden, complete the workout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            sessionManager.completeWorkout()
+            // View will be dismissed by notification observer
+            NotificationCenter.default.post(
+                name: .workoutSessionCompleted, 
+                object: nil
+            )
         }
     }
 }
@@ -650,7 +695,9 @@ struct ExerciseCard: View {
                         onUpdateWeight(index, weight)
                     },
                     onUpdateReps: { reps in
-                        onUpdateReps(index, reps)
+                        if let reps = reps {
+                            onUpdateReps(index, reps)
+                        }
                     },
                     focusedField: focusedField,
                     weightFieldId: "\(exerciseId)_weight_\(index)",
@@ -756,7 +803,7 @@ struct DetailedSetRow: View {
     var setNumber: Int
     var lastTimeText: String
     var currentWeight: Double?
-    var currentReps: Int?
+    var currentReps: Int
     var isCompleted: Bool
     var onToggleComplete: (Bool) -> Void
     var onUpdateWeight: (Double?) -> Void
@@ -779,7 +826,7 @@ struct DetailedSetRow: View {
     @State private var showCompletionAnimation: Bool = false
     
     // Initialize properly
-    init(setNumber: Int, lastTimeText: String, currentWeight: Double?, currentReps: Int?, isCompleted: Bool,
+    init(setNumber: Int, lastTimeText: String, currentWeight: Double?, currentReps: Int, isCompleted: Bool,
          onToggleComplete: @escaping (Bool) -> Void, onUpdateWeight: @escaping (Double?) -> Void, onUpdateReps: @escaping (Int?) -> Void,
          focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String, onDelete: (() -> Void)? = nil,
          isLastSet: Bool = false, animateAddSet: Bool = false, animateRemoveSet: Bool = false) {
@@ -804,7 +851,7 @@ struct DetailedSetRow: View {
         
         // Initialize the text fields with current values
         _weightText = State(initialValue: currentWeight != nil ? String(format: "%.1f", currentWeight!) : "")
-        _repsText = State(initialValue: currentReps != nil ? "\(currentReps!)" : "")
+        _repsText = State(initialValue: "\(currentReps)")
     }
     
     var body: some View {

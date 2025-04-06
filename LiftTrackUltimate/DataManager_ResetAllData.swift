@@ -5,19 +5,33 @@ import SwiftUI
 extension DataManager {
     func resetAllData() {
         // Reset user profile to default
-        self.profile = UserProfile(name: "Your Name", fitnessGoal: "Strength Training")
+        var newProfile = UserProfile()
+        newProfile.name = "Your Name"
+        updateProfile(newProfile)
         
         // Reset all workouts
-        // Add any additional workout reset code you need based on your app structure
+        workouts = []
+        // Clear workouts from UserDefaults directly using the known key names
+        UserDefaults.standard.removeObject(forKey: "userWorkouts")
         
-        // Reset all exercise memory
-        self.profile.exerciseMemory = []
+        // Reset exercises
+        exercises = []
+        UserDefaults.standard.removeObject(forKey: "exercises")
+        
+        // Reset templates
+        templates = []
+        UserDefaults.standard.removeObject(forKey: "workoutTemplates")
+        
+        // Reset exercise performances
+        exercisePerformances = []
+        UserDefaults.standard.removeObject(forKey: "exercisePerformances")
+        
+        // Reset any exercise memory if implemented
+        // If profile has exercise memory, reset it in the new profile before updating
+        // For example: newProfile.exerciseMemory = []
         
         // Reset any templates or other stored data
         // Add reset code for any other data types your app stores
-        
-        // Save the changes to persistent storage
-        saveProfile(self.profile)
         
         // Clear relevant UserDefaults
         let defaults = UserDefaults.standard
@@ -37,8 +51,14 @@ extension DataManager {
             }
         }
         
+        // Reload the sample exercises
+        loadSampleData()
+        
         // Post notification that data has been reset (optional)
         NotificationCenter.default.post(name: NSNotification.Name("DataResetCompleted"), object: nil)
+        
+        // Clear all caches
+        clearCaches()
         
         print("All app data has been reset.")
     }

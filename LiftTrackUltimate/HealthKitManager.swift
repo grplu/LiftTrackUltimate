@@ -25,15 +25,7 @@ class HealthKitManager: ObservableObject {
     @Published var isAuthorized = false
     @Published var authorizationStatus: HKAuthorizationStatus = .notDetermined
     @Published var recentWorkouts: [HKWorkout] = []
-    @Published var workoutStats: WorkoutStatistics = WorkoutStatistics()
-    
-    // Struct to hold workout statistics
-    struct WorkoutStatistics {
-        var totalWorkouts: Int = 0
-        var totalDuration: TimeInterval = 0
-        var totalCalories: Double = 0
-        var lastWorkoutDate: Date? = nil
-    }
+    @Published var workoutStats = WorkoutStatistics()
     
     // Private initializer to enforce singleton pattern
     private init() {
@@ -117,27 +109,33 @@ class HealthKitManager: ObservableObject {
     }
     
     private func calculateWorkoutStatistics(from workouts: [HKWorkout]) {
-        var stats = WorkoutStatistics()
-        
-        stats.totalWorkouts = workouts.count
+        let totalWorkouts = workouts.count
+        var totalDuration: TimeInterval = 0
+        var totalCalories: Double = 0
+        var lastWorkoutDate: Date? = nil
         
         for workout in workouts {
-            stats.totalDuration += workout.duration
+            totalDuration += workout.duration
             
             if let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) {
-                stats.totalCalories += calories
+                totalCalories += calories
             }
             
-            if let lastWorkoutDate = stats.lastWorkoutDate {
-                if workout.endDate > lastWorkoutDate {
-                    stats.lastWorkoutDate = workout.endDate
+            if let currentLastWorkoutDate = lastWorkoutDate {
+                if workout.endDate > currentLastWorkoutDate {
+                    lastWorkoutDate = workout.endDate
                 }
             } else {
-                stats.lastWorkoutDate = workout.endDate
+                lastWorkoutDate = workout.endDate
             }
         }
         
-        self.workoutStats = stats
+        self.workoutStats = WorkoutStatistics(
+            totalWorkouts: totalWorkouts,
+            totalDuration: totalDuration,
+            totalCalories: totalCalories,
+            lastWorkoutDate: lastWorkoutDate
+        )
     }
     
     // MARK: - Save Workout Data
