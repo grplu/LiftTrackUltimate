@@ -116,9 +116,14 @@ struct HistoryView: View {
             loadWorkouts()
             isLoading = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: .workoutDataChanged)) { _ in
+            print("DEBUG: Received workoutDataChanged notification in HistoryView")
+            loadWorkouts()
+        }
     }
     
     private func loadWorkouts() {
+        print("DEBUG: Loading workouts in HistoryView")
         // Organize workouts by month
         var tempMonthlyWorkouts: [String: [AppWorkout]] = [:]
         
@@ -146,6 +151,8 @@ struct HistoryView: View {
         } else if let firstMonth = tempMonthlyWorkouts.keys.sorted().first {
             selectedMonth = firstMonth
         }
+        
+        print("DEBUG: Finished loading workouts in HistoryView")
     }
 }
 
