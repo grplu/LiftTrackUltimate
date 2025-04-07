@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Exercise: Identifiable, Codable, Equatable {
+public struct Exercise: Identifiable, Codable, Equatable, Hashable {
     public var id = UUID()
     public var name: String
     public var category: String

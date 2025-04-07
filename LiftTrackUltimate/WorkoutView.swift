@@ -3,7 +3,6 @@ import SwiftUI
 struct WorkoutView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var selectedTemplate: WorkoutTemplate?
-    @State private var isWorkoutActive = false
     @State private var showingDeleteAlert = false
     @State private var templateToDelete: WorkoutTemplate?
     @State private var showingEditSheet = false
@@ -12,6 +11,7 @@ struct WorkoutView: View {
     @State private var selectedBodyPart: String? = nil
     @State private var showDropdown = false
     @State private var animateCards = false
+    @State private var showingTemplateDetail = false
     
     // Added bodyParts array
     private let bodyParts = ["All", "Chest", "Back", "Shoulders", "Arms", "Core", "Legs"]
@@ -44,7 +44,7 @@ struct WorkoutView: View {
                         confirmingTemplateId: $confirmingTemplateId,
                         onSelectTemplate: { template in
                             selectedTemplate = template
-                            isWorkoutActive = true
+                            showingTemplateDetail = true
                         },
                         onEditTemplate: { template in
                             templateToEdit = template
@@ -60,30 +60,23 @@ struct WorkoutView: View {
                     )
                 }
                 
-                // Dropdown overlay
+                // Dropdown overlay if showing
                 if showDropdown {
-                    WorkoutDropdownView(
-                        bodyParts: bodyParts,
+                    BodyPartDropdown(
                         selectedBodyPart: $selectedBodyPart,
                         showDropdown: $showDropdown,
-                        confirmingTemplateId: $confirmingTemplateId,
-                        bodyPartIcon: bodyPartIcon
+                        bodyParts: bodyParts
                     )
                 }
             }
-            .navigationDestination(isPresented: $isWorkoutActive) {
+            .fullScreenCover(isPresented: $showingTemplateDetail) {
                 if let template = selectedTemplate {
-                    ActiveWorkoutView(
-                        template: template,
-                        onEnd: {
-                            isWorkoutActive = false
-                            selectedTemplate = nil
-                        }
-                    )
+                    TemplateDetailView(template: template)
+                        .environmentObject(dataManager)
                 }
             }
             .alert("Delete Template", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) {}
+                Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
                     if let template = templateToDelete {
                         dataManager.deleteTemplate(template)
@@ -94,7 +87,6 @@ struct WorkoutView: View {
             }
             .sheet(isPresented: $showingEditSheet) {
                 if let template = templateToEdit {
-                    // CHANGED: Using EnhancedTemplateCreationView instead of EditTemplateView
                     EnhancedTemplateCreationView(
                         existingTemplate: template,
                         onSave: { updatedTemplate in
@@ -106,7 +98,7 @@ struct WorkoutView: View {
             }
             .sheet(isPresented: $showingCreateTemplateSheet) {
                 EnhancedTemplateCreationView(
-                    existingTemplate: nil,  // Explicitly pass nil since we're creating a new template
+                    existingTemplate: nil,
                     onSave: { newTemplate in
                         dataManager.saveTemplate(newTemplate)
                     }
@@ -146,30 +138,20 @@ struct WorkoutView: View {
     
     // Helper method to convert muscle group to body part for filtering
     private func muscleGroupToBodyPart(_ muscleGroup: String) -> String {
-        let lowercased = muscleGroup.lowercased()
-        
-        if lowercased.contains("chest") { return "Chest" }
-        if lowercased.contains("back") { return "Back" }
-        if lowercased.contains("shoulder") || lowercased.contains("delt") { return "Shoulders" }
-        if lowercased.contains("bicep") || lowercased.contains("tricep") || lowercased.contains("arm") { return "Arms" }
-        if lowercased.contains("core") || lowercased.contains("abdominal") { return "Core" }
-        if lowercased.contains("quad") || lowercased.contains("hamstring") || lowercased.contains("glute") ||
-           lowercased.contains("calf") || lowercased.contains("leg") { return "Legs" }
-        
-        return "Other"
-    }
-    
-    // Helper function to get icon for body part
-    func bodyPartIcon(_ bodyPart: String) -> String {
-        switch bodyPart {
-        case "All": return "square.grid.2x2"
-        case "Arms": return "figure.arms.open"
-        case "Chest": return "heart.fill"
-        case "Back": return "figure.strengthtraining.traditional"
-        case "Shoulders": return "person.bust"
-        case "Core": return "figure.core.training"
-        case "Legs": return "figure.walk"
-        default: return "figure.mixed.cardio"
+        let muscleGroup = muscleGroup.lowercased()
+        if muscleGroup.contains("chest") {
+            return "Chest"
+        } else if muscleGroup.contains("back") {
+            return "Back"
+        } else if muscleGroup.contains("shoulder") || muscleGroup.contains("delt") {
+            return "Shoulders"
+        } else if muscleGroup.contains("bicep") || muscleGroup.contains("tricep") || muscleGroup.contains("arm") {
+            return "Arms"
+        } else if muscleGroup.contains("core") || muscleGroup.contains("ab") {
+            return "Core"
+        } else if muscleGroup.contains("leg") || muscleGroup.contains("quad") || muscleGroup.contains("hamstring") {
+            return "Legs"
         }
+        return "Other"
     }
 }

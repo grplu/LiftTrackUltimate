@@ -6,65 +6,29 @@ struct TemplateDetailView: View {
     @State private var showingDeleteAlert = false
     @State private var showingEditView = false
     @State private var isWorkoutActive = false
+    @State private var appear = false
     
     var template: WorkoutTemplate
     
     var body: some View {
         ZStack {
             // Background color
-            Color.black.edgesIgnoringSafeArea(.all)
+            Color.black.ignoresSafeArea()
             
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Template header card
-                    headerView
-                    
-                    // Exercises section
-                    exercisesSection
-                }
-                .padding(.top, 16)
-                .padding(.bottom, 40)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Template Details")
-                    .font(.headline)
-                    .foregroundColor(.white)
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: {
-                        showingEditView = true
-                    }) {
-                        Label("Edit Template", systemImage: "pencil")
-                    }
-                    
-                    Button(role: .destructive, action: {
-                        showingDeleteAlert = true
-                    }) {
-                        Label("Delete Template", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-        }
-        .sheet(isPresented: $showingEditView) {
-            // Use the updated EnhancedTemplateCreationView
-            EnhancedTemplateCreationView(existingTemplate: template) { updatedTemplate in
-                dataManager.updateTemplate(updatedTemplate)
-            }
-            .environmentObject(dataManager)
-        }
-        .sheet(isPresented: $isWorkoutActive) {
-            // Use the existing ActiveWorkoutView
-            ActiveWorkoutView(
+            MainContentView(
                 template: template,
-                onEnd: {
-                    isWorkoutActive = false
+                showingEditView: $showingEditView,
+                showingDeleteAlert: $showingDeleteAlert,
+                isWorkoutActive: $isWorkoutActive,
+                dismiss: dismiss
+            )
+        }
+        .navigationBarHidden(true)
+        .sheet(isPresented: $showingEditView) {
+            EnhancedTemplateCreationView(
+                existingTemplate: template,
+                onSave: { updatedTemplate in
+                    dataManager.updateTemplate(updatedTemplate)
                 }
             )
             .environmentObject(dataManager)
@@ -78,90 +42,197 @@ struct TemplateDetailView: View {
         } message: {
             Text("Are you sure you want to delete this template? This action cannot be undone.")
         }
+        .fullScreenCover(isPresented: $isWorkoutActive) {
+            ActiveWorkoutView(
+                template: template,
+                onEnd: {
+                    isWorkoutActive = false
+                    dismiss()
+                }
+            )
+        }
+        .gesture(
+            DragGesture()
+                .onEnded { gesture in
+                    if gesture.translation.height > 100 {
+                        withAnimation {
+                            appear = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            dismiss()
+                        }
+                    }
+                }
+        )
+        .offset(y: appear ? 0 : UIScreen.main.bounds.height)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: appear)
+        .onAppear {
+            withAnimation {
+                appear = true
+            }
+        }
     }
+}
+
+// MARK: - Subviews
+
+struct MainContentView: View {
+    let template: WorkoutTemplate
+    @Binding var showingEditView: Bool
+    @Binding var showingDeleteAlert: Bool
+    @Binding var isWorkoutActive: Bool
+    let dismiss: DismissAction
     
-    // MARK: - UI Components
+    var body: some View {
+        VStack(spacing: 0) {
+            HeaderView(
+                template: template,
+                showingEditView: $showingEditView,
+                showingDeleteAlert: $showingDeleteAlert,
+                dismiss: dismiss
+            )
+            
+            ExerciseListView(exercises: template.exercises)
+            
+            BottomActionPanel(
+                template: template,
+                isWorkoutActive: $isWorkoutActive
+            )
+        }
+        .background(Color.black)
+    }
+}
+
+struct HeaderView: View {
+    let template: WorkoutTemplate
+    @Binding var showingEditView: Bool
+    @Binding var showingDeleteAlert: Bool
+    let dismiss: DismissAction
     
-    private var headerView: some View {
-        VStack(spacing: 16) {
-            // Icon - use custom icon if available
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue.opacity(0.5)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 80, height: 80)
-                
-                Image(systemName: template.customIcon ?? "dumbbell.fill")
-                    .font(.system(size: 30))
-                    .foregroundColor(.white)
-            }
-            .padding(.top, 20)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            NavigationBar(
+                showingEditView: $showingEditView,
+                showingDeleteAlert: $showingDeleteAlert,
+                dismiss: dismiss
+            )
             
-            // Template name
-            Text(template.name)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-            
-            // Template description if available
-            if let description = template.description, !description.isEmpty {
-                Text(description)
-                    .font(.system(size: 16))
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-            }
-            
-            // Exercise count & time
-            HStack(spacing: 20) {
-                // Exercise count
-                HStack(spacing: 8) {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.blue)
-                    
-                    Text("\(template.exercises.count) exercises")
-                        .font(.system(size: 16))
-                        .foregroundColor(.gray)
-                }
-                
-                // Estimated time
-                HStack(spacing: 8) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.orange)
-                    
-                    Text("\(template.exercises.count * 10) mins")
-                        .font(.system(size: 16))
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(.bottom, 8)
-            
-            // Start workout button
-            Button(action: {
-                isWorkoutActive = true
-            }) {
-                Text("Start Workout")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(height: 56)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.green)
-                    )
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            TemplateHeader(template: template)
         }
         .padding(.vertical, 16)
-        .frame(maxWidth: .infinity)
+        .background(Color.black)
+    }
+}
+
+struct NavigationBar: View {
+    @Binding var showingEditView: Bool
+    @Binding var showingDeleteAlert: Bool
+    let dismiss: DismissAction
+    
+    var body: some View {
+        HStack {
+            Button(action: { dismiss() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            
+            Spacer()
+            
+            Menu {
+                Button(action: { showingEditView = true }) {
+                    Label("Edit Template", systemImage: "pencil")
+                }
+                
+                Button(role: .destructive, action: { showingDeleteAlert = true }) {
+                    Label("Delete Template", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 24))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal)
+    }
+}
+
+struct TemplateHeader: View {
+    let template: WorkoutTemplate
+    
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            TemplateIcon(template: template)
+            
+            TemplateInfo(template: template)
+        }
+        .padding(.horizontal)
+    }
+}
+
+struct TemplateIcon: View {
+    let template: WorkoutTemplate
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.getColor(named: template.iconColor ?? "blue").opacity(0.2))
+                .frame(width: 60, height: 60)
+            
+            Image(systemName: template.customIcon ?? "dumbbell.fill")
+                .font(.system(size: 24))
+                .foregroundColor(Color.getColor(named: template.iconColor ?? "blue"))
+        }
+    }
+}
+
+struct TemplateInfo: View {
+    let template: WorkoutTemplate
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(template.name)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            if let description = template.description {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+struct ExerciseListView: View {
+    let exercises: [TemplateExercise]
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(exercises) { exercise in
+                    TemplateExerciseRow(exercise: exercise)
+                }
+            }
+            .padding(.top, 16)
+        }
+    }
+}
+
+struct BottomActionPanel: View {
+    let template: WorkoutTemplate
+    @Binding var isWorkoutActive: Bool
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            StatsRow(exerciseCount: template.exercises.count)
+            
+            StartWorkoutButton(isWorkoutActive: $isWorkoutActive)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color(.systemGray6).opacity(0.2))
@@ -172,98 +243,69 @@ struct TemplateDetailView: View {
         )
         .padding(.horizontal)
     }
+}
+
+struct StatsRow: View {
+    let exerciseCount: Int
     
-    private var exercisesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Exercises")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.horizontal)
-            
-            ForEach(template.exercises.indices, id: \.self) { index in
-                ExerciseDetailRow(
-                    exercise: template.exercises[index],
-                    index: index
-                )
-            }
+    var body: some View {
+        HStack(spacing: 20) {
+            ExerciseCountView(count: exerciseCount)
+            EstimatedTimeView(count: exerciseCount)
         }
-        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 }
 
-struct ExerciseDetailRow: View {
-    var exercise: TemplateExercise
-    var index: Int
+struct ExerciseCountView: View {
+    let count: Int
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Exercise header
-            HStack(spacing: 16) {
-                // Exercise number indicator with circle background
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.blue.opacity(0.7),
-                                    Color.blue.opacity(0.5)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 40, height: 40)
-                    
-                    Text("\(index + 1)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.exercise.name)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    
-                    // Handle optional reps safely
-                    let repsText = exercise.targetReps != nil ? "\(exercise.targetReps!)" : "0"
-                    HStack(spacing: 12) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.blue.opacity(0.8))
-                            
-                            Text("\(exercise.targetSets) sets")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 4) {
-                            Image(systemName: "repeat")
-                                .font(.system(size: 12))
-                                .foregroundColor(.green.opacity(0.8))
-                            
-                            Text("\(repsText) reps")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                
-                Spacer()
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 16)
+        HStack(spacing: 8) {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.blue)
+            
+            Text("\(count) exercises")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemGray6).opacity(0.15))
-                .overlay(
+    }
+}
+
+struct EstimatedTimeView: View {
+    let count: Int
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.orange)
+            
+            Text("\(count * 10) mins")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+        }
+    }
+}
+
+struct StartWorkoutButton: View {
+    @Binding var isWorkoutActive: Bool
+    
+    var body: some View {
+        Button(action: {
+            isWorkoutActive = true
+        }) {
+            Text("Start Workout")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .frame(height: 56)
+                .frame(maxWidth: .infinity)
+                .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        .fill(Color.green)
                 )
-        )
-        .padding(.horizontal)
+        }
     }
 }
 

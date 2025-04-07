@@ -64,6 +64,21 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
+    
+    // Helper function to get color from name
+    static func getColor(named colorName: String) -> Color {
+        switch colorName.lowercased() {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "purple": return .purple
+        case "pink": return .pink
+        case "teal": return .teal
+        default: return .blue
+        }
+    }
 }
 
 // View extension for reusable modifiers

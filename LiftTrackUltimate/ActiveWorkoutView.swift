@@ -275,8 +275,13 @@ struct ActiveWorkoutView: View {
                     let feedback = UINotificationFeedbackGenerator()
                     feedback.notificationOccurred(.error)
                     
+                    // First call onEnd to ensure parent view updates its state
                     onEnd()
-                    dismiss()
+                    
+                    // Use a slight delay before dismissing to allow the parent view's state to update
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        dismiss()
+                    }
                 }
             )
         }
@@ -335,11 +340,14 @@ struct ActiveWorkoutView: View {
         // Post notification for workout completion
         NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
         
-        print("DEBUG: Calling onEnd()")
+        print("DEBUG: Calling onEnd() and dismiss()")
+        // First call onEnd to ensure parent view updates its state
         onEnd()
         
-        print("DEBUG: Calling dismiss()")
-        dismiss()
+        // Use a slight delay before dismissing to allow the parent view's state to update
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            dismiss()
+        }
     }
     
     private func completeWorkoutNow() {
@@ -368,9 +376,14 @@ struct ActiveWorkoutView: View {
         
         // Dismiss the view and call onEnd
         print("*** Calling onEnd() and dismiss() ***")
+        // First call onEnd to ensure parent view updates its state
         onEnd()
-        dismiss()
-        print("*** completeWorkoutNow finished ***")
+        
+        // Use a slight delay before dismissing to allow the parent view's state to update
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            dismiss()
+            print("*** completeWorkoutNow finished ***")
+        }
     }
 }
 

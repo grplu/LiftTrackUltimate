@@ -1,7 +1,7 @@
 import Foundation
 
 // Using `targetWeight` and `notes` as properties, for consistency across the app
-public struct TemplateExercise: Identifiable, Equatable {
+public struct TemplateExercise: Identifiable, Equatable, Hashable {
     public var id = UUID()
     public var exercise: Exercise
     public var targetSets: Int
@@ -17,6 +17,11 @@ public struct TemplateExercise: Identifiable, Equatable {
                lhs.targetReps == rhs.targetReps &&
                lhs.targetWeight == rhs.targetWeight &&
                lhs.notes == rhs.notes
+    }
+    
+    // Hash implementation
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
     
     // Initialization with default values

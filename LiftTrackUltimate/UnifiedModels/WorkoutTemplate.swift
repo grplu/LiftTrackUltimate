@@ -1,6 +1,6 @@
 import Foundation
 
-public struct WorkoutTemplate: Identifiable, Codable, Equatable {
+public struct WorkoutTemplate: Identifiable, Codable, Equatable, Hashable {
     public var id = UUID()
     public var name: String
     public var description: String?
@@ -19,6 +19,10 @@ public struct WorkoutTemplate: Identifiable, Codable, Equatable {
                lhs.iconColor == rhs.iconColor &&
                lhs.createdAt == rhs.createdAt &&
                lhs.lastModified == rhs.lastModified
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
     
     public init(id: UUID = UUID(), name: String, description: String? = nil, exercises: [TemplateExercise] = [], customIcon: String? = nil, iconColor: String? = nil, createdAt: Date = Date(), lastModified: Date = Date()) {
