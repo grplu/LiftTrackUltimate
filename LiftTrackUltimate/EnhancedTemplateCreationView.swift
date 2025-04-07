@@ -23,7 +23,17 @@ struct EnhancedTemplateCreationView: View {
         GridItem(.adaptive(minimum: 70, maximum: 90), spacing: 15)
     ]
     
-    let categories = ["Strength", "Hypertrophy", "HIIT", "Cardio", "Calisthenics", "Full Body", "Upper Body", "Lower Body"]
+    // Template category data
+    let templateCategories = [
+        (name: "Strength", icon: "dumbbell.fill"),
+        (name: "Hypertrophy", icon: "figure.strengthtraining.traditional"),
+        (name: "HIIT", icon: "figure.highintensity.intervaltraining"),
+        (name: "Cardio", icon: "figure.run"),
+        (name: "Calisthenics", icon: "figure.gymnastics"),
+        (name: "Full Body", icon: "figure.mixed.cardio"),
+        (name: "Upper Body", icon: "figure.arms.open"),
+        (name: "Lower Body", icon: "figure.walk")
+    ]
     
     // Initialize with existing template data if editing (simplified version)
     init(existingTemplate: WorkoutTemplate?, onSave: @escaping (WorkoutTemplate) -> Void) {
@@ -36,8 +46,8 @@ struct EnhancedTemplateCreationView: View {
             _templateDescription = State(initialValue: template.description ?? "")
             _selectedExercises = State(initialValue: template.exercises)
             _selectedIcon = State(initialValue: template.customIcon ?? "dumbbell.fill")
-            // Use TemplateStorageManager to get the color
-            _selectedColor = State(initialValue: TemplateStorageManager.shared.getIconColor(for: template) ?? "blue")
+            // Get stored color from UserDefaults
+            _selectedColor = State(initialValue: UserDefaults.standard.string(forKey: "template_color_\(template.id.uuidString)") ?? "blue")
             
             // Initialize other fields with defaults if editing an existing template
             _selectedCategory = State(initialValue: "Strength") // Default category
@@ -53,261 +63,192 @@ struct EnhancedTemplateCreationView: View {
     
     var body: some View {
         NavigationView {
-            ZStack {
-                // Background color
-                Color.black.edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 0) {
-                    // Progress steps
-                    TemplateProgressSteps(currentStep: currentStep)
-                        .padding(.top, 20)
-                        .padding(.bottom, 24)
-                    
-                    // Content area
-                    contentArea
-                    
-                    // Navigation buttons
-                    navigationButtons
-                        .padding()
+            VStack(spacing: 0) {
+                if currentStep == 0 {
+                    TemplateDetailsSection
+                } else if currentStep == 1 {
+                    exerciseSection
+                } else {
+                    reviewSection
                 }
+
+                // Navigation buttons
+                NavigationFooter
             }
-            .navigationBarTitle("", displayMode: .inline)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.white)
-                    }
+                ToolbarItem(placement: .principal) {
+                    // Step indicator
+                    TemplateProgressSteps(currentStep: currentStep)
                 }
                 
-                ToolbarItem(placement: .principal) {
-                    Text(existingTemplate != nil ? "Edit Template" : stepTitle)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(.blue)
+                }
+                
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Text(existingTemplate != nil ? "Edit Template" : "New Template")
                         .font(.headline)
                         .foregroundColor(.white)
                 }
             }
-            .sheet(isPresented: $showingIconSheet) {
-                IconSelectorSheet(
+            .background(Color.black.edgesIgnoringSafeArea(.all))
+            .fullScreenCover(isPresented: $showingIconSheet) {
+                IconSelectionView(
                     selectedIcon: $selectedIcon,
                     selectedColor: $selectedColor
                 )
                 .preferredColorScheme(.dark)
             }
             .sheet(isPresented: $showingExerciseSelection) {
-                // Convert selected exercises to Exercise objects for the view
-                let selectedExerciseObjects = selectedExercises.map { $0.exercise }
-                
                 ExerciseSelectionView(
-                    selectedExercises: selectedExerciseObjects,
-                    onSelectionComplete: { exercises in
-                        // Process all selected exercises
-                        for exercise in exercises {
-                            // Add if not already in the selected list
-                            if !selectedExercises.contains(where: { $0.exercise.id == exercise.id }) {
-                                addExerciseToTemplate(exercise)
-                            }
-                        }
-                        
-                        // Remove any that are no longer selected
-                        selectedExercises.removeAll(where: { templateExercise in
-                            !exercises.contains(where: { $0.id == templateExercise.exercise.id })
-                        })
-                    }
+                    initialSelectedExercises: selectedExercises.map { $0.exercise },
+                    onSelectionComplete: onExerciseSelectionComplete
                 )
                 .environmentObject(dataManager)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
     }
     
     // MARK: - UI Component Breakdowns
     
-    // Content area based on current step
-    private var contentArea: some View {
-        ScrollView {
-            VStack(spacing: 30) {
-                // Step 1: Basic Info
-                if currentStep == 0 {
-                    basicInfoSection
-                }
-                
-                // Step 2: Add Exercises
-                else if currentStep == 1 {
-                    exercisesSection
-                }
-                
-                // Step 3: Review & Save
-                else if currentStep == 2 {
-                    reviewSection
-                }
-            }
-            .padding(.horizontal)
-        }
-        // Optimize scrolling performance
-        .scrollIndicators(.hidden)
-        // Prevent animations during scrolling
-        .transaction { transaction in
-            transaction.animation = nil
-        }
-    }
-    
-    // MARK: - Step Sections
-    
     // Step 1: Basic Info
-    private var basicInfoSection: some View {
-        VStack(spacing: 24) {
-            // Template icon selection
+    private var TemplateDetailsSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Template Details")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.horizontal)
+                .padding(.top)
+            
             VStack(spacing: 16) {
-                // Current selected icon - button now shows the icon sheet
-                Button(action: {
-                    showingIconSheet = true
-                }) {
-                    VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(getColor(named: selectedColor))
-                                .frame(width: 90, height: 90)
-                            
-                            Image(systemName: selectedIcon)
-                                .font(.system(size: 40))
-                                .foregroundColor(.white)
-                        }
-                        
-                        Text("Tap to change icon")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                }
-                .padding(.bottom, 16)
-            }
-            
-            // Name field
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Template Name")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                ZStack(alignment: .leading) {
-                    if templateName.isEmpty {
-                        Text("e.g. Upper Body Strength")
-                            .foregroundColor(.gray)
-                    }
-                    TextField("", text: $templateName)
-                        .foregroundColor(.white)
-                }
-                .padding()
-                .background(Color(.systemGray6).opacity(0.2))
-                .cornerRadius(10)
-            }
-            
-            // Description field
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Description (Optional)")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                ZStack(alignment: .topLeading) {
-                    if templateDescription.isEmpty {
-                        Text("Describe your workout template...")
-                            .foregroundColor(.gray)
-                            .padding(10)
-                    }
-                    TextEditor(text: $templateDescription)
-                        .foregroundColor(.white)
-                }
-                .frame(height: 100)
-                .padding(10)
-                .background(Color(.systemGray6).opacity(0.2))
-                .cornerRadius(10)
-            }
-            
-            // Category picker
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Category")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(categories, id: \.self) { category in
-                            Button(action: {
-                                selectedCategory = category
-                            }) {
-                                Text(category)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        selectedCategory == category ?
-                                        getColor(named: selectedColor) :
-                                        Color(.systemGray6).opacity(0.2)
-                                    )
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Visibility toggle
-            Toggle(isOn: $isPublic) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Share to Template Store")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    
-                    Text("Allow other users to discover and use your template")
-                        .font(.caption)
+                // Template name field
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Template Name")
+                        .font(.subheadline)
                         .foregroundColor(.gray)
+                    
+                    TextField("My Workout Template", text: $templateName)
+                        .padding()
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(10)
+                        .foregroundColor(.white)
+                }
+                
+                // Template description field
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Description (Optional)")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    TextEditor(text: $templateDescription)
+                        .padding(8)
+                        .frame(height: 100)
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(10)
+                        .foregroundColor(.white)
+                }
+                
+                // Template icon selection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Icon & Color")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    Button {
+                        showingIconSheet = true
+                    } label: {
+                        HStack {
+                            // Icon preview
+                            ZStack {
+                                Circle()
+                                    .fill(Color.getColor(named: selectedColor).opacity(0.2))
+                                    .frame(width: 40, height: 40)
+                                
+                                Image(systemName: selectedIcon)
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color.getColor(named: selectedColor))
+                            }
+                            
+                            Text("Tap to Change")
+                                .foregroundColor(.gray)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(10)
+                    }
+                }
+                
+                // Template category selection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Category")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    Picker("Category", selection: $selectedCategory) {
+                        ForEach(templateCategories, id: \.name) { category in
+                            Text(category.name).tag(category.name)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(10)
+                    .foregroundColor(.white)
+                }
+                
+                // Visibility toggle
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Visibility")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    
+                    Toggle(isOn: $isPublic) {
+                        Text(isPublic ? "Public Template" : "Private Template")
+                            .foregroundColor(.white)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: Color.getColor(named: selectedColor)))
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(10)
                 }
             }
-            .toggleStyle(SwitchToggleStyle(tint: getColor(named: selectedColor)))
-            .padding(.vertical, 8)
+            .padding()
         }
     }
     
     // Step 2: Add Exercises
-    private var exercisesSection: some View {
-        VStack(spacing: 20) {
-            // Header with exercise count
+    private var exerciseSection: some View {
+        VStack(spacing: 12) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Add Exercises")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
-                    Text("\(selectedExercises.count) exercises added")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                
+                Text("Exercises")
+                    .font(.headline)
+                    .foregroundColor(.white)
                 Spacer()
-                
-                Button(action: {
-                    showingExerciseSelection = true
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(getColor(named: selectedColor))
-                }
-                .buttonStyle(BorderlessButtonStyle())
             }
+            .padding(.horizontal)
+            .padding(.top)
             
             if selectedExercises.isEmpty {
-                // Empty state
+                // Empty state with add button
                 VStack(spacing: 16) {
-                    Image(systemName: selectedIcon)
+                    Image(systemName: "dumbbell")
                         .font(.system(size: 40))
                         .foregroundColor(.gray)
-                        .padding(.top, 30)
                     
-                    Text("No exercises yet")
+                    Text("No exercises added yet")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.gray)
                     
                     Text("Tap the + button to add exercises to your template")
                         .font(.subheadline)
@@ -318,262 +259,225 @@ struct EnhancedTemplateCreationView: View {
                     Button(action: {
                         showingExerciseSelection = true
                     }) {
-                        Text("Add Exercise")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(getColor(named: selectedColor))
-                            .cornerRadius(10)
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 16))
+                            Text("Add Exercise")
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 16)
+                        .background(Color.blue.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
                     }
-                    .buttonStyle(BorderlessButtonStyle())
-                    .padding(.top, 10)
                 }
-                .padding(.vertical, 40)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
             } else {
-                // Create view models once to avoid recreating during scrolling
-                let viewModels = createViewModels()
-                
-                // Efficient scrolling list with recycled views
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 16) {
-                        ForEach(viewModels) { viewModel in
-                            OptimizedTemplateExerciseRow(
-                                viewModel: viewModel,
-                                onRemove: {
-                                    if let index = selectedExercises.firstIndex(where: { $0.id == viewModel.exercise.id }) {
+                // Use a regular VStack instead of LazyVStack to avoid rendering issues
+                VStack(spacing: 15) {
+                    // Create view models once and use the array
+                    let exerciseViewModels = createViewModels()
+                    
+                    ForEach(exerciseViewModels.indices, id: \.self) { index in
+                        OptimizedTemplateExerciseRow(
+                            viewModel: exerciseViewModels[index],
+                            onSetsChanged: { newValue in
+                                if index < selectedExercises.count {
+                                    selectedExercises[index].targetSets = newValue
+                                }
+                            },
+                            onRepsChanged: { newValue in
+                                if index < selectedExercises.count {
+                                    selectedExercises[index].targetReps = newValue
+                                }
+                            },
+                            onWeightChanged: { newValue in
+                                if index < selectedExercises.count {
+                                    // Update the targetWeight property directly
+                                    selectedExercises[index].targetWeight = newValue > 0 ? Double(newValue) : nil
+                                }
+                            },
+                            onDeleteTapped: {
+                                if index < selectedExercises.count {
+                                    withAnimation {
                                         selectedExercises.remove(at: index)
                                     }
-                                },
-                                onEditSets: { sets in
-                                    if let index = selectedExercises.firstIndex(where: { $0.id == viewModel.exercise.id }) {
-                                        selectedExercises[index].targetSets = sets
-                                    }
-                                },
-                                onEditReps: { reps in
-                                    if let index = selectedExercises.firstIndex(where: { $0.id == viewModel.exercise.id }) {
-                                        selectedExercises[index].targetReps = reps
-                                    }
-                                },
-                                onEditWeight: { weight in
-                                    if let index = selectedExercises.firstIndex(where: { $0.id == viewModel.exercise.id }) {
-                                        TemplateStorageManager.shared.saveTargetWeight(weight, for: selectedExercises[index])
-                                    }
                                 }
-                            )
-                            .id(viewModel.id.uuidString)
-                            // Apply critical performance optimizations
-                            .drawingGroup(opaque: true)
-                            // Prevent animations on view creation
-                            .transaction { transaction in
-                                transaction.animation = nil
                             }
+                        )
+                        .padding(.horizontal)
+                        .id("\(exerciseViewModels[index].exercise.id)_\(exerciseViewModels[index].targetSets)_\(exerciseViewModels[index].targetReps)_\(exerciseViewModels[index].targetWeight)")
+                        
+                        if index < exerciseViewModels.count - 1 {
+                            Divider()
+                                .padding(.horizontal)
                         }
                     }
-                    .padding(.horizontal, 2)
-                    .padding(.bottom, 120) // Extra padding for bottom buttons
                 }
-                // Configure scroll view for best performance
-                .onAppear {
-                    UIScrollView.appearance().isPagingEnabled = false
-                    UIScrollView.appearance().bounces = false
-                    UIScrollView.appearance().decelerationRate = .fast
-                    
-                    // Disable haptic feedback while scrolling
-                    UIImpactFeedbackGenerator.disableFeedback = true
-                }
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
                 
-                // Add more button
+                // Add Exercise button below the list
                 Button(action: {
                     showingExerciseSelection = true
                 }) {
-                    HStack {
-                        Image(systemName: "plus")
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 16))
                         Text("Add Exercise")
+                            .font(.system(size: 16, weight: .medium))
                     }
-                    .font(.headline)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .background(Color.blue.opacity(0.8))
                     .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(getColor(named: selectedColor).opacity(0.2))
                     .cornerRadius(10)
                 }
-                .buttonStyle(BorderlessButtonStyle())
-                .padding(.top, 16)
+                .padding(.horizontal)
+                .padding(.top, 8)
             }
         }
     }
     
-    // Create view models just once to avoid recreating during scrolling
-    private func createViewModels() -> [TemplateExerciseViewModel] {
-        return selectedExercises.enumerated().map { index, exercise in
-            TemplateExerciseViewModel(
+    // Optimized view model creation to reduce unnecessary recreation
+    private func createViewModels() -> [OptimizedTemplateExerciseViewModel] {
+        print("Creating view models for \(selectedExercises.count) exercises")
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        let viewModels = selectedExercises.map { exercise in
+            // Convert Double? to Int for the UI, defaulting to 0
+            let weightInt = exercise.targetWeight.flatMap { Int($0) } ?? 0
+            
+            return OptimizedTemplateExerciseViewModel(
                 exercise: exercise,
-                index: index,
-                accentColor: getColor(named: selectedColor)
+                targetSets: exercise.targetSets,
+                targetReps: exercise.targetReps ?? 10,
+                targetWeight: weightInt
             )
         }
+        
+        let endTime = CFAbsoluteTimeGetCurrent()
+        print("View model creation took \(endTime - startTime) seconds")
+        return viewModels
     }
     
     // Step 3: Review & Save
     private var reviewSection: some View {
-        VStack(spacing: 24) {
-            // Template preview card
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Review Template")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.horizontal)
+                .padding(.top)
+            
             VStack(spacing: 16) {
-                // Template icon preview
-                ZStack {
-                    Circle()
-                        .fill(getColor(named: selectedColor).opacity(0.2))
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: selectedIcon)
-                        .font(.system(size: 30))
-                        .foregroundColor(getColor(named: selectedColor))
-                }
-                .padding(.top, 20)
-                
-                // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(templateName.isEmpty ? "Untitled Template" : templateName)
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        HStack(spacing: 8) {
-                            Text(selectedCategory)
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-                                .background(getColor(named: selectedColor).opacity(0.2))
-                                .foregroundColor(getColor(named: selectedColor))
-                                .cornerRadius(10)
+                // Template preview card
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        ZStack {
+                            Circle()
+                                .fill(Color.getColor(named: selectedColor).opacity(0.2))
+                                .frame(width: 50, height: 50)
                             
-                            Text("\(selectedExercises.count) exercises")
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.getColor(named: selectedColor))
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(templateName)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Text(selectedCategory)
                                 .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("\(selectedExercises.count) Exercises")
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            
+                            Text(isPublic ? "Public" : "Private")
+                                .font(.caption)
                                 .foregroundColor(.gray)
                         }
                     }
                     
-                    Spacer()
+                    Divider().background(Color.gray.opacity(0.3))
                     
-                    // Visibility badge
-                    HStack {
-                        Image(systemName: isPublic ? "globe" : "lock.fill")
-                            .font(.system(size: 12))
-                        Text(isPublic ? "Public" : "Private")
-                            .font(.caption)
+                    // Exercise summary list
+                    ForEach(selectedExercises, id: \.id) { exercise in
+                        HStack {
+                            EnhancedTemplateCreationView.getIconForMuscleGroup(exercise.exercise.muscleGroups.first ?? "")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .frame(width: 24, height: 24)
+                                .background(Color.gray.opacity(0.3))
+                                .clipShape(Circle())
+                            
+                            Text(exercise.exercise.name)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Text("\(exercise.targetSets) × \(exercise.targetReps ?? 0)")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(isPublic ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                    .foregroundColor(isPublic ? .green : .gray)
-                    .cornerRadius(8)
                 }
-                
-                // Description
-                if !templateDescription.isEmpty {
-                    Text(templateDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 10)
-                }
-                
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                    .padding(.vertical, 8)
-                
-                // Exercise summary
-                exerciseSummaryList
+                .padding()
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(16)
             }
-            .padding(20)
-            .background(Color(.systemGray6).opacity(0.2))
-            .cornerRadius(16)
-        }
-    }
-    
-    // Exercise summary list for review section
-    private var exerciseSummaryList: some View {
-        VStack(spacing: 16) {
-            ForEach(Array(selectedExercises.enumerated()), id: \.1.id) { index, exercise in
-                HStack {
-                    Text("\(index + 1).")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .frame(width: 30, alignment: .leading)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(exercise.exercise.name)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        
-                        // Show sets, reps, and weight (if set)
-                        let repsText = exercise.targetReps != nil ? "\(exercise.targetReps!)" : "0"
-                        let weight = TemplateStorageManager.shared.getTargetWeight(for: exercise)
-                        let weightText = weight != nil ? " • \(weight!) kg" : ""
-                        Text("\(exercise.targetSets) sets × \(repsText) reps\(weightText)")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Spacer()
-                }
-                .padding(.vertical, 4)
-            }
+            .padding()
         }
     }
     
     // MARK: - Navigation Buttons
     
-    private var navigationButtons: some View {
-        HStack(spacing: 16) {
-            // Back button (except on first step)
+    var NavigationFooter: some View {
+        HStack {
             if currentStep > 0 {
-                Button(action: {
-                    currentStep -= 1
-                }) {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
+                Button("Back") {
+                    withAnimation {
+                        currentStep -= 1
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(10)
                 }
+                .foregroundColor(.blue)
             }
             
-            // Continue/Save button
-            Button(action: {
+            Spacer()
+            
+            Button(currentStep < 2 ? "Next" : "Save") {
                 if currentStep < 2 {
-                    currentStep += 1
+                    withAnimation {
+                        currentStep += 1
+                    }
                 } else {
                     saveTemplate()
                 }
-            }) {
-                HStack {
-                    Text(currentStep == 2 ? "Save Template" : "Continue")
-                    
-                    if currentStep < 2 {
-                        Image(systemName: "chevron.right")
-                    } else {
-                        Image(systemName: "checkmark")
-                    }
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(buttonBackgroundColor)
-                .cornerRadius(10)
             }
-            .disabled(!canAdvance)
-            .opacity(canAdvance ? 1.0 : 0.5)
+            .foregroundColor(.white)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 20)
+            .background(Color.blue)
+            .cornerRadius(10)
+            .disabled(currentStep == 1 && selectedExercises.isEmpty)
         }
+        .padding()
+        .background(Color.black.opacity(0.7))
     }
     
     // MARK: - Progress Steps
@@ -591,7 +495,7 @@ struct EnhancedTemplateCreationView: View {
         if !canAdvance {
             return Color.gray
         }
-        return currentStep == 2 ? Color.green : getColor(named: selectedColor)
+        return currentStep == 2 ? Color.green : Color.getColor(named: selectedColor)
     }
     
     private var canAdvance: Bool {
@@ -605,43 +509,47 @@ struct EnhancedTemplateCreationView: View {
     
     // MARK: - Helper Functions
     
-    // Converts color name to Color object
-    func getColor(named colorName: String) -> Color {
-        switch colorName.lowercased() {
-        case "red": return Color.red
-        case "orange": return Color.orange
-        case "yellow": return Color.yellow
-        case "green": return Color.green
-        case "blue": return Color.blue
-        case "purple": return Color.purple
-        case "pink": return Color.pink
-        case "teal": return Color.teal
-        default: return Color.blue
+    // MARK: - Exercise Selection
+    private func showExerciseSelection() {
+        showingExerciseSelection = true
+    }
+    
+    // More efficient function to add exercises to template
+    func addExerciseToTemplate(exercise: Exercise) {
+        print("Adding exercise: \(exercise.name)")
+        
+        // Check if the exercise is already in the template to avoid duplicates
+        if selectedExercises.contains(where: { $0.exercise.id == exercise.id }) {
+            print("Exercise already in template, skipping")
+            return
+        }
+        
+        // Get last performance for default values if available
+        let lastWeight = dataManager.getLastPerformance(for: exercise)?.lastUsedWeight
+        
+        // Create a template exercise with default values
+        let templateExercise = TemplateExercise(
+            exercise: exercise,
+            targetSets: 3,
+            targetReps: 10,
+            targetWeight: lastWeight
+        )
+        
+        // Add it to the array
+        withAnimation {
+            selectedExercises.append(templateExercise)
+            print("Added exercise successfully. Total exercises: \(selectedExercises.count)")
         }
     }
     
-    // Helper function to add an exercise to the template
-    private func addExerciseToTemplate(_ exercise: Exercise) {
-        // Check for last performance
-        let lastPerformance = dataManager.getLastPerformance(for: exercise)
+    // More efficient handling of exercise selection completion
+    private func onExerciseSelectionComplete(_ exercises: [Exercise]) {
+        print("Exercise selection complete with \(exercises.count) exercises")
         
-        // Safely unwrap optionals or provide defaults
-        let targetSets = lastPerformance?.totalSets ?? 3
-        let targetReps = lastPerformance?.lastUsedReps ?? 10
-        
-        // Create template exercise first
-        let templateExercise = TemplateExercise(
-            exercise: exercise,
-            targetSets: targetSets,
-            targetReps: targetReps
-        )
-        
-        // Then set the weight separately using our storage manager
-        if let lastWeight = lastPerformance?.lastUsedWeight {
-            TemplateStorageManager.shared.saveTargetWeight(lastWeight, for: templateExercise)
+        // Add any new exercises that aren't already in the template
+        for exercise in exercises {
+            addExerciseToTemplate(exercise: exercise)
         }
-        
-        selectedExercises.append(templateExercise)
     }
     
     private func saveTemplate() {
@@ -667,8 +575,8 @@ struct EnhancedTemplateCreationView: View {
             )
         }
         
-        // Save the icon color using our storage manager
-        TemplateStorageManager.shared.setIconColor(selectedColor, for: template)
+        // Save the icon color in UserDefaults
+        UserDefaults.standard.set(selectedColor, forKey: "template_color_\(template.id.uuidString)")
         
         // Save using callback
         onSave(template)
@@ -701,8 +609,8 @@ struct EnhancedTemplateCreationView: View {
         (name: "Arms", icon: "figure.arms.open"),
         (name: "Cycling", icon: "figure.indoor.cycle"),
         (name: "Yoga", icon: "figure.mind.and.body"),
-        (name: "Chest", icon: "heart.fill"),
-        (name: "Back", icon: "figure.strengthtraining.traditional"),
+        (name: "Chest", icon: "figure.heart.circle"),
+        (name: "Back", icon: "figure.strengthtraining.functional"),
         (name: "Shoulders", icon: "person.bust"),
         (name: "Core", icon: "figure.core.training"),
         (name: "Legs", icon: "figure.walk"),
@@ -718,6 +626,26 @@ struct EnhancedTemplateCreationView: View {
         (name: "Nutrition", icon: "fork.knife"),
         (name: "Sleep", icon: "bed.double.fill")
     ]
+    
+    // Helper function to get the appropriate icon for a muscle group
+    static func getIconForMuscleGroup(_ muscleGroup: String) -> Image {
+        switch muscleGroup.lowercased() {
+        case "chest":
+            return Image(systemName: "figure.strengthtraining.traditional")
+        case "back":
+            return Image(systemName: "figure.strengthtraining.functional")
+        case "shoulders":
+            return Image(systemName: "figure.arms.open")
+        case "arms", "biceps", "triceps":
+            return Image(systemName: "figure.archery")
+        case "abs", "core":
+            return Image(systemName: "figure.play")
+        case "legs", "quads", "hamstrings", "calves":
+            return Image(systemName: "figure.run")
+        default:
+            return Image(systemName: "dumbbell")
+        }
+    }
 }
 
 // MARK: - Supporting Views
@@ -738,210 +666,188 @@ struct TemplateProgressSteps: View {
     }
 }
 
-// MARK: - Template Exercise View Model
+// MARK: - Optimized Template Exercise View Model
 // Pre-computed view model to minimize recalculations and rebuilds
-class TemplateExerciseViewModel: Identifiable {
-    let id: UUID
+class OptimizedTemplateExerciseViewModel: Identifiable {
+    let id = UUID()
     let exercise: TemplateExercise
-    let index: Int
-    let accentColor: Color
     
-    // Cached computed properties
+    // Pre-computed properties to avoid recalculations
     let exerciseName: String
-    let exerciseIcon: String
+    let muscleGroup: String
+    let muscleGroups: [String]
     
-    init(exercise: TemplateExercise, index: Int, accentColor: Color) {
-        self.id = exercise.id
+    // Values that can be modified
+    var targetSets: Int
+    var targetReps: Int
+    var targetWeight: Int
+    
+    init(exercise: TemplateExercise, targetSets: Int, targetReps: Int, targetWeight: Int) {
         self.exercise = exercise
-        self.index = index
-        self.accentColor = accentColor
-        
-        // Pre-compute values to avoid recalculation
         self.exerciseName = exercise.exercise.name
+        self.muscleGroups = exercise.exercise.muscleGroups
+        self.muscleGroup = exercise.exercise.muscleGroups.first ?? "General"
         
-        // Handle category - it's a non-optional String in the Exercise model
-        let category = exercise.exercise.category
-        // Try to create ExerciseCategory from the string
-        if category == "Strength" || category == "Cardio" || 
-           category == "Flexibility" || category == "Core" || 
-           category == "Balance" || category == "Olympic" || 
-           category == "Plyometric" || category == "Other" {
-            // This is a valid enum case
-            self.exerciseIcon = category.lowercased()
-        } else {
-            // Not a valid enum case, just use the string
-            self.exerciseIcon = category.lowercased()
-        }
+        self.targetSets = targetSets
+        self.targetReps = targetReps
+        self.targetWeight = targetWeight
     }
 }
 
 // Optimized row that only renders what's needed
 struct OptimizedTemplateExerciseRow: View {
     // Use a view model to prevent excessive view rebuilds
-    let viewModel: TemplateExerciseViewModel
+    let viewModel: OptimizedTemplateExerciseViewModel
     
-    var onRemove: () -> Void
-    var onEditSets: (Int) -> Void
-    var onEditReps: (Int?) -> Void
-    var onEditWeight: (Double?) -> Void
-    
-    @State private var sets: Int
-    @State private var reps: Int?
-    @State private var weight: Double?
-    
-    init(viewModel: TemplateExerciseViewModel, onRemove: @escaping () -> Void, onEditSets: @escaping (Int) -> Void, onEditReps: @escaping (Int?) -> Void, onEditWeight: @escaping (Double?) -> Void) {
-        self.viewModel = viewModel
-        self.onRemove = onRemove
-        self.onEditSets = onEditSets
-        self.onEditReps = onEditReps
-        self.onEditWeight = onEditWeight
-        
-        // Initialize local state with exercise values
-        _sets = State(initialValue: viewModel.exercise.targetSets)
-        _reps = State(initialValue: viewModel.exercise.targetReps ?? 10)
-        // Use TemplateStorageManager to get the weight
-        _weight = State(initialValue: TemplateStorageManager.shared.getTargetWeight(for: viewModel.exercise) ?? 0)
-    }
+    // Callbacks for when values change
+    let onSetsChanged: (Int) -> Void
+    let onRepsChanged: (Int) -> Void
+    let onWeightChanged: (Int) -> Void
+    let onDeleteTapped: () -> Void
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Exercise header
             HStack {
-                // Exercise number
-                ZStack {
-                    Circle()
-                        .fill(viewModel.accentColor.opacity(0.2))
-                        .frame(width: 28, height: 28)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.exerciseName)
+                        .font(.headline)
+                        .foregroundColor(.white)
                     
-                    Text("\(viewModel.index + 1)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(viewModel.accentColor)
+                    Text(viewModel.muscleGroup)
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
-                
-                Text(viewModel.exerciseName)
-                    .font(.headline)
-                    .foregroundColor(.white)
                 
                 Spacer()
                 
-                // Remove button
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill")
+                Button(action: onDeleteTapped) {
+                    Image(systemName: "trash")
                         .foregroundColor(.red)
-                        .font(.system(size: 18))
+                        .padding(8)
                 }
-                .buttonStyle(BorderlessButtonStyle())
             }
             
-            // Workout parameter pickers
-            HStack(spacing: 10) {
-                // SETS PICKER - Optimized
+            // Exercise parameters
+            HStack(spacing: 12) {
+                // Sets
                 parameterPicker(
                     label: "Sets",
                     selection: Binding(
-                        get: { sets },
-                        set: { 
-                            sets = $0
-                            onEditSets($0)
-                        }
+                        get: { viewModel.targetSets },
+                        set: { onSetsChanged($0) }
                     ),
-                    range: 1...12
+                    range: 1...10
                 )
                 
-                // REPS PICKER - Optimized  
+                // Reps
                 parameterPicker(
                     label: "Reps",
                     selection: Binding(
-                        get: { reps ?? 0 },
-                        set: { 
-                            reps = $0
-                            onEditReps($0)
-                        }
+                        get: { viewModel.targetReps },
+                        set: { onRepsChanged($0) }
                     ),
                     range: 1...50
                 )
                 
-                // WEIGHT PICKER - Optimized
+                // Weight
                 weightPicker(
                     label: "Weight",
                     selection: Binding(
-                        get: { Int(weight ?? 0) },
-                        set: { 
-                            weight = Double($0)
-                            onEditWeight($0 > 0 ? Double($0) : nil)
-                        }
+                        get: { viewModel.targetWeight },
+                        set: { onWeightChanged($0) }
                     )
                 )
             }
         }
         .padding()
-        .background(Color.black.opacity(0.15))
-        .cornerRadius(14)
+        .background(Color(UIColor.tertiarySystemBackground))
+        .cornerRadius(10)
     }
     
-    // Reusable parameter picker to avoid code duplication
+    // Reusable picker for parameters
     private func parameterPicker(label: String, selection: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        VStack(alignment: .center, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundColor(.gray)
             
             ZStack {
-                Color.black.opacity(0.3)
+                Color(UIColor.systemGray6)
                     .cornerRadius(8)
-                    .frame(height: 90)
                 
-                Picker("", selection: selection) {
+                // Use a simple Menu instead of WheelPicker to improve performance
+                Menu {
                     ForEach(range, id: \.self) { value in
-                        Text("\(value)")
-                            .tag(value)
+                        Button(action: {
+                            selection.wrappedValue = value
+                        }) {
+                            Text("\(value)")
+                                .foregroundColor(selection.wrappedValue == value ? .blue : .white)
+                        }
                     }
+                } label: {
+                    Text("\(selection.wrappedValue)")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
                 }
-                .pickerStyle(WheelPickerStyle())
+                .buttonStyle(BorderlessButtonStyle())
             }
-            .frame(maxWidth: .infinity)
+            .frame(height: 40)
         }
+        .frame(maxWidth: .infinity)
     }
     
-    // Specialized weight picker with optimized value range
+    // Specialized picker for weight
     private func weightPicker(label: String, selection: Binding<Int>) -> some View {
-        VStack(alignment: .center, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundColor(.gray)
             
             ZStack {
-                Color.black.opacity(0.3)
+                Color(UIColor.systemGray6)
                     .cornerRadius(8)
-                    .frame(height: 90)
                 
-                HStack(spacing: 0) {
-                    Picker("", selection: selection) {
-                        // Use a more efficient approach by generating values in chunks
-                        ForEach(0...20, id: \.self) { decade in
-                            // 0, 5, 10, 15... up to 100
-                            let value = decade * 5
+                // Use a simple Menu instead of WheelPicker to improve performance
+                Menu {
+                    Button(action: {
+                        selection.wrappedValue = 0
+                    }) {
+                        Text("BW")
+                            .foregroundColor(selection.wrappedValue == 0 ? .blue : .white)
+                    }
+                    
+                    ForEach([5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200], id: \.self) { value in
+                        Button(action: {
+                            selection.wrappedValue = value
+                        }) {
                             Text("\(value)")
-                                .tag(value)
-                        }
-                        // Add common weights after 100 in larger increments
-                        ForEach([110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 
-                                 225, 250, 275, 300, 315, 350, 400, 450, 500, 550, 600,
-                                 650, 700, 750, 800, 850, 900, 950, 1000], id: \.self) { value in
-                            Text("\(value)")
-                                .tag(value)
+                                .foregroundColor(selection.wrappedValue == value ? .blue : .white)
                         }
                     }
-                    .pickerStyle(WheelPickerStyle())
-                    
-                    Text("kg")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 16))
-                        .padding(.trailing, 5)
+                } label: {
+                    HStack {
+                        Text(selection.wrappedValue == 0 ? "BW" : "\(selection.wrappedValue)")
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        Spacer()
+                        
+                        Text("kg")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.trailing, 8)
+                    }
+                    .padding(.leading, 8)
+                    .frame(height: 40)
                 }
+                .buttonStyle(BorderlessButtonStyle())
             }
-            .frame(maxWidth: .infinity)
+            .frame(height: 40)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -958,5 +864,12 @@ extension UIImpactFeedbackGenerator {
             generator.prepare()
             generator.impactOccurred(intensity: intensity)
         }
+    }
+}
+
+// MARK: - Exercise Extension
+extension Exercise {
+    var primaryMuscleGroup: String {
+        return muscleGroups.first ?? ""
     }
 }

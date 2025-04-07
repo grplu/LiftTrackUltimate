@@ -287,7 +287,7 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showingExerciseSelection) {
             ExerciseSelectionView(
-                selectedExercises: [],  // No exercises selected initially
+                initialSelectedExercises: [],  // No exercises selected initially
                 onSelectionComplete: { exercises in
                     // Add each selected exercise to the session
                     for exercise in exercises {

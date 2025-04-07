@@ -2,175 +2,227 @@ import SwiftUI
 
 struct ExerciseSelectionView: View {
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     
-    @State private var selectedFilter: ExerciseCategory?
+    @State private var selectedFilter: String = ""
     @State private var searchText: String = ""
     @State private var selectedExercisesMap: [UUID: Bool] = [:]
     
     // Pre-compute view models for better performance
     @State private var exerciseViewModels: [ExerciseListViewModel] = []
+    @State private var shouldAutoDismiss = true
     
     // Original selected exercises (for comparison)
     let initialSelectedExercises: [Exercise]
     let onSelectionComplete: ([Exercise]) -> Void
     
-    init(selectedExercises: [Exercise], onSelectionComplete: @escaping ([Exercise]) -> Void) {
-        self.initialSelectedExercises = selectedExercises
+    init(initialSelectedExercises: [Exercise], onSelectionComplete: @escaping ([Exercise]) -> Void) {
+        self.initialSelectedExercises = initialSelectedExercises
         self.onSelectionComplete = onSelectionComplete
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header with dismiss button and title
-            HStack {
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(Color(.systemGray5).opacity(0.3)))
-                }
-                
-                Spacer()
-                
-                Text("Add Exercises")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Button(action: {
-                    // Get the selected exercises
-                    let selectedExercises = exerciseViewModels
-                        .filter { $0.isSelected }
-                        .map { $0.exercise }
-                    
-                    // Complete selection
-                    onSelectionComplete(selectedExercises)
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Text("Done")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
-            .padding()
-            .background(Color.black.opacity(0.2))
-            
-            // Search bar
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
-                
-                TextField("Search exercises", text: $searchText)
-                    .foregroundColor(.white)
-                    .autocorrectionDisabled(true)
-                
-                if !searchText.isEmpty {
+            // Header with dismiss button and auto-dismiss toggle
+            VStack(spacing: 8) {
+                HStack {
                     Button(action: {
-                        searchText = ""
+                        dismiss()
                     }) {
                         Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
                             .foregroundColor(.gray)
                     }
-                    .buttonStyle(BorderlessButtonStyle())
-                }
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(.systemGray6).opacity(0.2))
-            )
-            .padding([.horizontal, .top])
-            
-            // Category filter chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    FilterChip(
-                        title: "All",
-                        isSelected: selectedFilter == nil,
-                        action: { selectedFilter = nil }
-                    )
                     
-                    ForEach(ExerciseCategory.allCases, id: \.self) { category in
-                        FilterChip(
-                            title: category.rawValue,
-                            isSelected: selectedFilter == category,
-                            action: { selectedFilter = category }
-                        )
+                    Spacer()
+                    
+                    Text(headerText)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    // Done button to complete selection
+                    Button(action: dismissWithSelection) {
+                        Text("Done")
+                            .font(.headline)
+                            .foregroundColor(.blue)
                     }
                 }
-                .padding([.horizontal, .top])
-            }
-            
-            // Exercise list - optimized for performance
-            List {
-                let filteredModels = filteredExercises()
+                .padding()
                 
-                ForEach(filteredModels) { viewModel in
-                    OptimizedExerciseCell(
-                        viewModel: viewModel,
-                        onSelect: {
-                            // Find the viewModel in our array and toggle selection
-                            if let index = exerciseViewModels.firstIndex(where: { $0.id == viewModel.id }) {
-                                exerciseViewModels[index].isSelected.toggle()
-                            }
-                        }
-                    )
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                // Auto-dismiss toggle
+                HStack {
+                    Toggle("Auto-dismiss on selection", isOn: $shouldAutoDismiss)
+                        .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        .foregroundColor(.white)
+                        .font(.subheadline)
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                
+                if shouldAutoDismiss {
+                    Text("Exercises will be added immediately when selected")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                }
+                
+                // Search bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    
+                    TextField("Search exercises", text: $searchText)
+                        .foregroundColor(.white)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    
+                    if !searchText.isEmpty {
+                        Button(action: {
+                            searchText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                
+                // Category filters
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        CategoryFilterChip(
+                            name: "All",
+                            isSelected: selectedFilter.isEmpty,
+                            action: { selectedFilter = "" }
+                        )
+                        
+                        ForEach(allCategories, id: \.self) { category in
+                            CategoryFilterChip(
+                                name: category,
+                                isSelected: selectedFilter == category,
+                                action: { selectedFilter = category }
+                            )
+                        }
+                    }
+                    .padding([.horizontal, .top])
+                }
+                
+                // Exercise list - optimized for performance
+                List {
+                    let filteredModels = filteredExercises()
+                    
+                    ForEach(filteredModels) { viewModel in
+                        OptimizedExerciseCell(
+                            viewModel: viewModel,
+                            onSelect: {
+                                // Toggle selection first
+                                if let index = exerciseViewModels.firstIndex(where: { $0.id == viewModel.id }) {
+                                    exerciseViewModels[index].isSelected.toggle()
+                                    
+                                    // If auto-dismiss is enabled and we just selected the exercise
+                                    if shouldAutoDismiss && exerciseViewModels[index].isSelected {
+                                        dismissWithSelection()
+                                    }
+                                }
+                            }
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    }
+                }
+                .listStyle(PlainListStyle())
+                .background(Color.black)
             }
-            .listStyle(PlainListStyle())
-            .background(Color.black)
-        }
-        .background(Color.black.edgesIgnoringSafeArea(.all))
-        .onAppear {
-            // Pre-compute view models just once
-            initializeViewModels()
-            
-            // Disable haptic feedback for better performance
-            UIImpactFeedbackGenerator.disableFeedback = true
-        }
-        .onDisappear {
-            // Re-enable haptic feedback
-            UIImpactFeedbackGenerator.disableFeedback = false
+            .background(Color.black.edgesIgnoringSafeArea(.all))
+            .onAppear {
+                // Pre-compute view models just once
+                initializeViewModels()
+                
+                // Disable haptic feedback for better performance
+                UIImpactFeedbackGenerator.disableFeedback = true
+            }
+            .onDisappear {
+                // Re-enable haptic feedback
+                UIImpactFeedbackGenerator.disableFeedback = false
+            }
         }
     }
     
-    // Initialize view models with selection state
+    // Optimized method for initializing view models to reduce overhead
     private func initializeViewModels() {
-        let selectedIds = Set(initialSelectedExercises.map { $0.id })
-        exerciseViewModels = dataManager.exercises.map { exercise in
-            ExerciseListViewModel(
-                exercise: exercise,
-                isSelected: selectedIds.contains(exercise.id)
-            )
+        print("Initializing exercise view models")
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Create a set of IDs for quick lookup
+        let selectedExerciseIds = Set(initialSelectedExercises.map { $0.id })
+        
+        // Process in batches for better performance
+        let batchSize = 100
+        let exerciseBatches = stride(from: 0, to: dataManager.exercises.count, by: batchSize).map {
+            Array(dataManager.exercises[$0..<min($0 + batchSize, dataManager.exercises.count)])
         }
+        
+        var models: [ExerciseListViewModel] = []
+        
+        for batch in exerciseBatches {
+            let batchModels = batch.map { exercise in
+                ExerciseListViewModel(
+                    exercise: exercise,
+                    isSelected: selectedExerciseIds.contains(exercise.id)
+                )
+            }
+            models.append(contentsOf: batchModels)
+        }
+        
+        self.exerciseViewModels = models
+        
+        let endTime = CFAbsoluteTimeGetCurrent()
+        print("View model initialization took \(endTime - startTime) seconds")
     }
     
-    // Filter exercises based on category and search text
+    // Optimized filteredExercises method
     private func filteredExercises() -> [ExerciseListViewModel] {
-        exerciseViewModels.filter { viewModel in
-            // Filter by category - compare with enum's rawValue 
-            let matchesCategory: Bool
-            if let filter = selectedFilter {
-                matchesCategory = viewModel.exercise.category.lowercased() == filter.rawValue.lowercased()
-            } else {
-                matchesCategory = true
-            }
-            
-            // Filter by search text
-            let matchesSearch = searchText.isEmpty || 
-                viewModel.name.lowercased().contains(searchText.lowercased())
-            
+        if selectedFilter.isEmpty && searchText.isEmpty {
+            return exerciseViewModels
+        }
+        
+        return exerciseViewModels.filter { viewModel in
+            let matchesCategory = selectedFilter.isEmpty ? true : viewModel.categoryName == selectedFilter
+            let matchesSearch = searchText.isEmpty ? true : viewModel.name.localizedCaseInsensitiveContains(searchText)
             return matchesCategory && matchesSearch
         }
+    }
+    
+    // Add debug method to check exercises
+    private var selectedExercises: [Exercise] {
+        return exerciseViewModels
+            .filter { $0.isSelected }
+            .map { $0.exercise }
+    }
+    
+    // Update header to include selection count
+    private var headerText: String {
+        let count = selectedExercises.count
+        return count > 0 ? "Select Exercises (\(count) selected)" : "Select Exercises"
+    }
+    
+    // Dismiss action
+    private func dismissWithSelection() {
+        let selectedExercises = exerciseViewModels
+            .filter { $0.isSelected }
+            .map { $0.exercise }
+        
+        print("Dismissing with \(selectedExercises.count) selected exercises")
+        onSelectionComplete(selectedExercises)
+        dismiss()
     }
 }
 
@@ -376,8 +428,8 @@ struct OptimizedExerciseCell: View {
         switch category.lowercased() {
         case "strength": return .blue
         case "cardio": return .green
-        case "hiit": return .orange
         case "flexibility": return .purple
+        case "core": return .orange
         default: return .blue
         }
     }
@@ -412,5 +464,27 @@ struct FilterChip: View {
                 )
         }
         .buttonStyle(BorderlessButtonStyle())
+    }
+}
+
+// Define available exercise categories from the ExerciseCategory enum
+private let allCategories = ["Strength", "Cardio", "Flexibility", "Core", "Balance", "Olympic", "Plyometric", "Other"]
+
+// Reusable category filter chip component
+struct CategoryFilterChip: View {
+    let name: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(name)
+                .font(.subheadline)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.blue : Color.gray.opacity(0.3))
+                .foregroundColor(isSelected ? .white : .gray)
+                .cornerRadius(16)
+        }
     }
 }
