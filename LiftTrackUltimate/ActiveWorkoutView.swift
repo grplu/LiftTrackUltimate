@@ -574,6 +574,30 @@ struct ActiveWorkoutExerciseCard: View {
     var animateAddSet: Bool
     var animateRemoveSet: Bool
     
+    // Calculate the first set that can be edited (first uncompleted set)
+    private var firstEditableSetIndex: Int {
+        // If there are no completed sets, only the first set is editable
+        if !exercise.sets.contains(where: { $0.completed }) {
+            return 0
+        }
+        
+        // Find the index of the first uncompleted set
+        for (index, set) in exercise.sets.enumerated() {
+            if !set.completed {
+                return index
+            }
+        }
+        
+        // If all sets are completed, the next one would be editable
+        return exercise.sets.count
+    }
+    
+    // Determine if a set is editable (can be edited and completed)
+    private func isSetEditable(at index: Int) -> Bool {
+        // A set is editable if it's already completed or if it's the first uncompleted set
+        return exercise.sets[index].completed || index == firstEditableSetIndex
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Exercise header
@@ -611,6 +635,23 @@ struct ActiveWorkoutExerciseCard: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
+            
+            // Instruction tip for sequential set completion
+            if firstEditableSetIndex < exercise.sets.count {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 14))
+                    
+                    Text("Complete sets in order. Set \(firstEditableSetIndex + 1) is ready to be completed.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.gray)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+            }
             
             // Added subtle divider between header and table
             Divider()
@@ -673,7 +714,9 @@ struct ActiveWorkoutExerciseCard: View {
                     // Pass the animation flag for the last set
                     isLastSet: index == exercise.sets.count - 1,
                     animateAddSet: animateAddSet,
-                    animateRemoveSet: animateRemoveSet
+                    animateRemoveSet: animateRemoveSet,
+                    isEditableNow: isSetEditable(at: index),
+                    isNextToComplete: index == firstEditableSetIndex
                 )
                 
                 Divider()
@@ -737,6 +780,8 @@ struct ActiveWorkoutExerciseCard: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .padding(.horizontal, 10)
+                    // Only allow removing sets if all sets are completed or the last set is not editable
+                    .disabled(firstEditableSetIndex < exercise.sets.count)
                 }
             }
             .padding(.top, 12)
@@ -767,37 +812,57 @@ struct ActiveWorkoutExerciseCard: View {
 
 // Detailed set row with optimized text input and animations
 struct DetailedSetRow: View {
-    var setNumber: Int
-    var lastTimeText: String
-    var currentWeight: Double?
-    var currentReps: Int
-    var isCompleted: Bool
-    var onToggleComplete: (Bool) -> Void
-    var onUpdateWeight: (Double?) -> Void
-    var onUpdateReps: (Int?) -> Void
+    // Basic properties
+    let setNumber: Int
+    let lastTimeText: String
+    let currentWeight: Double?
+    let currentReps: Int
+    let isCompleted: Bool
+    let isEditableNow: Bool
+    let isNextToComplete: Bool
+    
+    // Callbacks
+    let onToggleComplete: (Bool) -> Void
+    let onUpdateWeight: (Double?) -> Void
+    let onUpdateReps: (Int?) -> Void
+    let onDelete: (() -> Void)?
+    
+    // Focus state
     var focusedField: FocusState<String?>.Binding
-    var weightFieldId: String
-    var repsFieldId: String
-    var onDelete: (() -> Void)?
+    let weightFieldId: String
+    let repsFieldId: String
     
     // Animation support
-    var isLastSet: Bool
-    var animateAddSet: Bool
-    var animateRemoveSet: Bool
+    let isLastSet: Bool
+    let animateAddSet: Bool
+    let animateRemoveSet: Bool
     
-    // Local state for text fields with preset values
-    @State private var weightText: String
-    @State private var repsText: String
-    
-    // State for completion animation
+    // Local state
+    @State private var weightText: String = ""
+    @State private var repsText: String = ""
     @State private var showCompletionAnimation: Bool = false
+    @State private var isPulsating: Bool = false
     
-    // Initialize properly
-    init(setNumber: Int, lastTimeText: String, currentWeight: Double?, currentReps: Int, isCompleted: Bool,
-         onToggleComplete: @escaping (Bool) -> Void, onUpdateWeight: @escaping (Double?) -> Void, onUpdateReps: @escaping (Int?) -> Void,
-         focusedField: FocusState<String?>.Binding, weightFieldId: String, repsFieldId: String, onDelete: (() -> Void)? = nil,
-         isLastSet: Bool = false, animateAddSet: Bool = false, animateRemoveSet: Bool = false) {
-        
+    // Standard initializer
+    init(
+        setNumber: Int,
+        lastTimeText: String,
+        currentWeight: Double?,
+        currentReps: Int,
+        isCompleted: Bool,
+        onToggleComplete: @escaping (Bool) -> Void,
+        onUpdateWeight: @escaping (Double?) -> Void,
+        onUpdateReps: @escaping (Int?) -> Void,
+        focusedField: FocusState<String?>.Binding,
+        weightFieldId: String,
+        repsFieldId: String,
+        onDelete: (() -> Void)? = nil,
+        isLastSet: Bool = false,
+        animateAddSet: Bool = false,
+        animateRemoveSet: Bool = false,
+        isEditableNow: Bool = true,
+        isNextToComplete: Bool = false
+    ) {
         self.setNumber = setNumber
         self.lastTimeText = lastTimeText
         self.currentWeight = currentWeight
@@ -810,154 +875,274 @@ struct DetailedSetRow: View {
         self.weightFieldId = weightFieldId
         self.repsFieldId = repsFieldId
         self.onDelete = onDelete
-        
-        // Animation properties
         self.isLastSet = isLastSet
         self.animateAddSet = animateAddSet
         self.animateRemoveSet = animateRemoveSet
+        self.isEditableNow = isEditableNow
+        self.isNextToComplete = isNextToComplete
         
-        // Initialize the text fields with current values
+        // Initialize text state
         _weightText = State(initialValue: currentWeight != nil ? String(format: "%.1f", currentWeight!) : "")
         _repsText = State(initialValue: "\(currentReps)")
     }
     
     var body: some View {
+        rowContent
+            .padding(.vertical, 8)
+            .background(rowBackground)
+            .opacity(rowOpacity)
+            .scaleEffect(isLastSet && animateAddSet ? 0.8 : 1.0)
+            .animation(.spring(response: 0.3), value: animateAddSet)
+            .animation(.easeInOut(duration: 0.2), value: animateRemoveSet)
+            .contextMenu { contextMenuContent }
+            .swipeActions(edge: .trailing) { swipeActionsContent }
+            .onAppear(perform: setupAnimations)
+    }
+    
+    // MARK: - View Components
+    
+    private var rowContent: some View {
         HStack {
-            // Set number
-            Text("\(setNumber)")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 40, alignment: .center)
-            
-            // Last time with improved formatting - smaller and lighter
-            Text(lastTimeText)
-                .font(.system(size: 12))
-                .foregroundColor(Color.gray.opacity(0.7))
-                .frame(width: 100, alignment: .center)
-            
-            // Weight input with blue outline to indicate it's editable
-            ZStack {
-                if focusedField.wrappedValue != weightFieldId {
-                    Text(weightText.isEmpty ? "0" : weightText)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(weightText.isEmpty ? Color.white.opacity(0.5) : .white)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
-                
-                TextField("", text: $weightText)
-                    .keyboardType(.decimalPad)
+            setNumberView
+            lastTimeView
+            weightInputField
+            repsInputField
+            completionButton
+        }
+    }
+    
+    private var setNumberView: some View {
+        Text("\(setNumber)")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundColor(setNumberColor)
+            .frame(width: 40, alignment: .center)
+    }
+    
+    private var lastTimeView: some View {
+        Text(lastTimeText)
+            .font(.system(size: 12))
+            .foregroundColor(Color.gray.opacity(0.7))
+            .frame(width: 100, alignment: .center)
+    }
+    
+    private var weightInputField: some View {
+        ZStack {
+            if focusedField.wrappedValue != weightFieldId {
+                Text(weightText.isEmpty ? "0" : weightText)
                     .font(.system(size: 16, weight: .medium))
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.white)
-                    .focused(focusedField, equals: weightFieldId)
-                    .opacity(focusedField.wrappedValue == weightFieldId ? 1 : 0)
-                    .onChange(of: weightText) { oldValue, newValue in
-                        let cleanedValue = newValue.replacingOccurrences(of: ",", with: ".")
-                        if cleanedValue.isEmpty {
-                            onUpdateWeight(nil)
-                        } else if let value = Double(cleanedValue) {
-                            onUpdateWeight(value)
-                        }
-                    }
+                    .foregroundColor(weightText.isEmpty ? Color.white.opacity(0.5) : .white)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
-            .frame(width: 70, height: 42)
-            .background(Color(.systemGray6).opacity(0.3))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
-            )
-            .cornerRadius(10)
-            .onTapGesture {
+            
+            TextField("", text: $weightText)
+                .keyboardType(.decimalPad)
+                .font(.system(size: 16, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundColor(.white)
+                .focused(focusedField, equals: weightFieldId)
+                .opacity(focusedField.wrappedValue == weightFieldId ? 1 : 0)
+                .disabled(!isEditableNow)
+                .onChange(of: weightText) { oldValue, newValue in
+                    handleWeightChange(newValue)
+                }
+        }
+        .frame(width: 70, height: 42)
+        .background(Color(.systemGray6).opacity(isEditableNow ? 0.3 : 0.2))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(inputBorderColor, lineWidth: isNextToComplete ? 2 : 1)
+        )
+        .cornerRadius(10)
+        .onTapGesture {
+            if isEditableNow {
                 focusedField.wrappedValue = weightFieldId
             }
-            
-            // Reps input with blue outline to indicate it's editable
-            ZStack {
-                if focusedField.wrappedValue != repsFieldId {
-                    Text(repsText.isEmpty ? "0" : repsText)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(repsText.isEmpty ? Color.white.opacity(0.5) : .white)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
-                
-                TextField("", text: $repsText)
-                    .keyboardType(.numberPad)
+        }
+    }
+    
+    private var repsInputField: some View {
+        ZStack {
+            if focusedField.wrappedValue != repsFieldId {
+                Text(repsText.isEmpty ? "0" : repsText)
                     .font(.system(size: 16, weight: .medium))
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.white)
-                    .focused(focusedField, equals: repsFieldId)
-                    .opacity(focusedField.wrappedValue == repsFieldId ? 1 : 0)
-                    .onChange(of: repsText) { oldValue, newValue in
-                        if newValue.isEmpty {
-                            onUpdateReps(nil)
-                        } else if let value = Int(newValue) {
-                            onUpdateReps(value)
-                        }
-                    }
+                    .foregroundColor(repsText.isEmpty ? Color.white.opacity(0.5) : .white)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
-            .frame(width: 70, height: 42)
-            .background(Color(.systemGray6).opacity(0.3))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
-            )
-            .cornerRadius(10)
-            .onTapGesture {
+            
+            TextField("", text: $repsText)
+                .keyboardType(.numberPad)
+                .font(.system(size: 16, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundColor(.white)
+                .focused(focusedField, equals: repsFieldId)
+                .opacity(focusedField.wrappedValue == repsFieldId ? 1 : 0)
+                .disabled(!isEditableNow)
+                .onChange(of: repsText) { oldValue, newValue in
+                    handleRepsChange(newValue)
+                }
+        }
+        .frame(width: 70, height: 42)
+        .background(Color(.systemGray6).opacity(isEditableNow ? 0.3 : 0.2))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(inputBorderColor, lineWidth: isNextToComplete ? 2 : 1)
+        )
+        .cornerRadius(10)
+        .onTapGesture {
+            if isEditableNow {
                 focusedField.wrappedValue = repsFieldId
             }
+        }
+    }
+    
+    private var completionButton: some View {
+        Button(action: handleCompletionToggle) {
+            ZStack {
+                Circle()
+                    .stroke(completionCircleColor, lineWidth: 2)
+                    .frame(width: 32, height: 32)
+                
+                completionCircleContent
+            }
+        }
+        .disabled(!isEditableNow)
+        .frame(width: 60, alignment: .center)
+    }
+    
+    private var completionCircleContent: some View {
+        Group {
+            if isCompleted {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 24, height: 24)
+                    .scaleEffect(showCompletionAnimation ? 1.2 : 1.0)
+            } else if isNextToComplete {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.blue)
+                    .scaleEffect(isPulsating ? 1.1 : 1.0)
+            } else if !isEditableNow {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.gray.opacity(0.5))
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var contextMenuContent: some View {
+        if let onDelete = onDelete, isEditableNow {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete Set", systemImage: "trash")
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var swipeActionsContent: some View {
+        if let onDelete = onDelete, isEditableNow {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+    
+    private var rowBackground: some View {
+        Group {
+            if isNextToComplete {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.1))
+                    .padding(.horizontal, 8)
+            } else {
+                Color.clear
+            }
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var setNumberColor: Color {
+        if isEditableNow {
+            return isNextToComplete ? .blue : .white
+        } else {
+            return .gray.opacity(0.6)
+        }
+    }
+    
+    private var inputBorderColor: Color {
+        if isNextToComplete {
+            return Color.blue.opacity(isPulsating ? 0.8 : 0.4)
+        } else if isEditableNow {
+            return Color.blue.opacity(0.4)
+        } else {
+            return Color.gray.opacity(0.3)
+        }
+    }
+    
+    private var completionCircleColor: Color {
+        if isCompleted {
+            return Color.green
+        } else if isNextToComplete {
+            return Color.blue.opacity(isPulsating ? 0.8 : 0.5)
+        } else if isEditableNow {
+            return Color.gray.opacity(0.5)
+        } else {
+            return Color.gray.opacity(0.2)
+        }
+    }
+    
+    private var rowOpacity: Double {
+        if isLastSet && animateRemoveSet {
+            return 0
+        } else if !isEditableNow {
+            return 0.7
+        } else if isLastSet && animateAddSet {
+            return 0.8
+        } else {
+            return 1.0
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func setupAnimations() {
+        if isNextToComplete {
+            withAnimation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                isPulsating = true
+            }
+        }
+    }
+    
+    private func handleWeightChange(_ newValue: String) {
+        let cleanedValue = newValue.replacingOccurrences(of: ",", with: ".")
+        if cleanedValue.isEmpty {
+            onUpdateWeight(nil)
+        } else if let value = Double(cleanedValue) {
+            onUpdateWeight(value)
+        }
+    }
+    
+    private func handleRepsChange(_ newValue: String) {
+        if newValue.isEmpty {
+            onUpdateReps(nil)
+        } else if let value = Int(newValue) {
+            onUpdateReps(value)
+        }
+    }
+    
+    private func handleCompletionToggle() {
+        if isEditableNow {
+            withAnimation(.spring(response: 0.3)) {
+                showCompletionAnimation = !isCompleted
+            }
             
-            // Completion toggle with animation
-            Button(action: {
-                // Animation when set is marked as completed
-                withAnimation(.spring(response: 0.3)) {
-                    showCompletionAnimation = !isCompleted // Only animate when completing, not when uncompleting
-                }
-                
-                // Call the completion handler
-                onToggleComplete(!isCompleted)
-                
-                // Reset the animation flag after a delay
-                if !isCompleted {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        withAnimation {
-                            showCompletionAnimation = false
-                        }
+            onToggleComplete(!isCompleted)
+            
+            if !isCompleted {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation {
+                        showCompletionAnimation = false
                     }
-                }
-            }) {
-                ZStack {
-                    Circle()
-                        .stroke(isCompleted ? Color.green : Color.gray.opacity(0.5), lineWidth: 2)
-                        .frame(width: 32, height: 32)
-                    
-                    if isCompleted {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 24, height: 24)
-                            // Scale animation when completed
-                            .scaleEffect(showCompletionAnimation ? 1.2 : 1.0)
-                    }
-                }
-            }
-            .frame(width: 60, alignment: .center)
-        }
-        .padding(.vertical, 8)
-        .opacity(isLastSet && animateRemoveSet ? 0 : 1) // Fade out last set when removing
-        .scaleEffect(isLastSet && animateAddSet ? 0.8 : 1.0) // Scale animation for new sets
-        .opacity(isLastSet && animateAddSet ? 0.8 : 1.0) // Opacity animation for new sets
-        .animation(.spring(response: 0.3), value: animateAddSet) // Apply spring animation
-        .animation(.easeInOut(duration: 0.2), value: animateRemoveSet) // Apply remove animation
-        .contextMenu {
-            if let onDelete = onDelete {
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete Set", systemImage: "trash")
-                }
-            }
-        }
-        .swipeActions(edge: .trailing) {
-            if let onDelete = onDelete {
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
                 }
             }
         }
