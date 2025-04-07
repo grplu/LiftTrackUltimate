@@ -1,5 +1,8 @@
 import SwiftUI
 
+// Define an explicit import or include a direct reference to the TemplatesView file here if needed
+// The compiler may need to know where to find the TemplatesView type
+
 struct ContentView: View {
     @StateObject private var dataManager = DataManager.shared
     @State private var selectedTab = 2
@@ -34,6 +37,13 @@ struct ContentView: View {
                     ForEach(0..<tabs.count, id: \.self) { index in
                         Button(action: {
                             selectedTab = index
+                            
+                            // When switching to Exercises tab, ensure data is loaded
+                            if index == 3 && dataManager.exercises.isEmpty {
+                                print("Switching to Exercises tab - loading sample exercises")
+                                dataManager.loadSampleExercises()
+                            }
+                            
                             let generator = UIImpactFeedbackGenerator(style: .light)
                             generator.impactOccurred()
                         }) {

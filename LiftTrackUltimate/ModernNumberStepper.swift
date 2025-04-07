@@ -64,6 +64,7 @@ struct ModernNumberStepper: View {
 }
 
 // Button style with scale animation
+/*
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -71,3 +72,4 @@ struct ScaleButtonStyle: ButtonStyle {
             .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
+*/

@@ -300,6 +300,12 @@ class DataManager: ObservableObject {
     private func saveExercises() {
         if let encodedData = try? JSONEncoder().encode(exercises) {
             UserDefaults.standard.set(encodedData, forKey: exercisesKey)
+            print("Saved \(exercises.count) exercises to UserDefaults")
+            
+            // Force UserDefaults to save immediately
+            UserDefaults.standard.synchronize()
+        } else {
+            print("Failed to encode and save exercises")
         }
     }
     
@@ -621,6 +627,24 @@ class DataManager: ObservableObject {
     }
     
     // MARK: - Sample Data
+    
+    func loadSampleExercises() {
+        // Check if we already have exercises
+        if !exercises.isEmpty {
+            print("Already have \(exercises.count) exercises, not loading samples")
+            return
+        }
+        
+        print("Loading sample exercises - starting")
+        loadSampleData()
+        print("Sample exercises loaded - count: \(exercises.count)")
+        
+        // Force save to UserDefaults
+        saveExercises()
+        
+        // Notify any observers
+        NotificationCenter.default.post(name: .workoutDataChanged, object: nil)
+    }
     
     func loadSampleData() {
         // Comprehensive Exercise List

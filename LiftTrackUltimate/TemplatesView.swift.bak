@@ -1,8 +1,42 @@
 import SwiftUI
 
-// IMPORTANT: TemplateExercise extension was removed to fix redeclaration issue
-// The targetWeight property is now properly defined in the TemplateExercise model
-// IMPORTANT: WorkoutTemplate extension was removed since iconColor is now part of the model
+// First, add this extension to WorkoutTemplate at the top of the file
+extension WorkoutTemplate {
+    // This assumes your WorkoutTemplate already has a 'customIcon' property
+    // Add an optional iconColor property
+    var iconColor: String? {
+        get {
+            UserDefaults.standard.string(forKey: "template_color_\(id.uuidString)")
+        }
+        set {
+            if let newValue = newValue {
+                UserDefaults.standard.set(newValue, forKey: "template_color_\(id.uuidString)")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "template_color_\(id.uuidString)")
+            }
+        }
+    }
+}
+
+// Add this extension for TemplateExercise if you're getting errors about targetWeight
+extension TemplateExercise {
+    // This assumes your TemplateExercise already has properties like 'targetSets' and 'targetReps'
+    // Add an optional targetWeight property
+    var targetWeight: Double? {
+        get {
+            let key = "template_exercise_weight_\(id.uuidString)"
+            return UserDefaults.standard.object(forKey: key) as? Double
+        }
+        set {
+            let key = "template_exercise_weight_\(id.uuidString)"
+            if let newValue = newValue {
+                UserDefaults.standard.set(newValue, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+    }
+}
 
 struct TemplatesView: View {
     @EnvironmentObject var dataManager: DataManager
@@ -17,10 +51,11 @@ struct TemplatesView: View {
     }
     
     var body: some View {
+        // REMOVED NavigationView - THIS IS THE KEY CHANGE
         ZStack {
             // Background gradient
             LinearGradient(
-                gradient: Gradient(colors: [Color.black, Color("101010")]),
+                gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -205,6 +240,24 @@ struct TemplatesView: View {
         .onDisappear {
             // Re-enable haptic feedback when view disappears
             enableHapticFeedback()
+        }
+    }
+    
+    // Helper to disable haptic feedback
+    private func disableHapticFeedback() {
+        // Check if we have the UIImpactFeedbackGenerator.disableFeedback property
+        if let disableFeedbackClass = NSClassFromString("UIImpactFeedbackGenerator") as? NSObject.Type,
+           disableFeedbackClass.responds(to: Selector(("disableFeedback"))) {
+            disableFeedbackClass.setValue(true, forKey: "disableFeedback")
+        }
+    }
+    
+    // Helper to re-enable haptic feedback
+    private func enableHapticFeedback() {
+        // Check if we have the UIImpactFeedbackGenerator.disableFeedback property
+        if let disableFeedbackClass = NSClassFromString("UIImpactFeedbackGenerator") as? NSObject.Type,
+           disableFeedbackClass.responds(to: Selector(("disableFeedback"))) {
+            disableFeedbackClass.setValue(false, forKey: "disableFeedback")
         }
     }
     
@@ -457,24 +510,6 @@ struct TemplatesView: View {
         "Strength", "Hypertrophy", "HIIT", "Cardio", "Calisthenics",
         "Beginner", "Intermediate", "Advanced", "Home", "Gym"
     ]
-    
-    // Helper to disable haptic feedback
-    private func disableHapticFeedback() {
-        // Check if we have the UIImpactFeedbackGenerator.disableFeedback property
-        if let disableFeedbackClass = NSClassFromString("UIImpactFeedbackGenerator") as? NSObject.Type,
-           disableFeedbackClass.responds(to: Selector(("disableFeedback"))) {
-            disableFeedbackClass.setValue(true, forKey: "disableFeedback")
-        }
-    }
-    
-    // Helper to re-enable haptic feedback
-    private func enableHapticFeedback() {
-        // Check if we have the UIImpactFeedbackGenerator.disableFeedback property
-        if let disableFeedbackClass = NSClassFromString("UIImpactFeedbackGenerator") as? NSObject.Type,
-           disableFeedbackClass.responds(to: Selector(("disableFeedback"))) {
-            disableFeedbackClass.setValue(false, forKey: "disableFeedback")
-        }
-    }
 }
 
 // MARK: - Component Views
@@ -605,7 +640,7 @@ struct EnhancedTemplateCard: View {
     
     // Get accent color based on template's iconColor or default to blue
     private var accentColor: Color {
-        // Get color from the template's iconColor property
+        // Get color from our extension property
         if let colorName = template.iconColor {
             return getColor(named: colorName)
         }
@@ -867,4 +902,4 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
-} 
+}

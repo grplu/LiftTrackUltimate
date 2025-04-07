@@ -23,12 +23,9 @@ struct ActiveWorkoutView: View {
     @State private var animateAddSet = false
     @State private var animateRemoveSet = false
     
-    // FIXED: Celebration animation state
+    // Celebration animation state
     @State private var celebrate: Bool = false
     @State private var lastCompletionPercentage: Double = 0 // Track previous value
-    
-    // Observer for notifications
-    @State private var workoutCompletionObserver: Any? = nil
     
     init(template: WorkoutTemplate?, onEnd: @escaping () -> Void) {
         self.template = template
@@ -51,7 +48,7 @@ struct ActiveWorkoutView: View {
             
             // Content area
             VStack(spacing: 0) {
-                // IMPROVED: Progress indicator with floating percentage and celebration animation
+                // Progress indicator with floating percentage and celebration animation
                 ZStack(alignment: .leading) {
                     // Background track
                     Rectangle()
@@ -71,7 +68,7 @@ struct ActiveWorkoutView: View {
                         .frame(width: UIScreen.main.bounds.width * CGFloat(completionPercentage / 100), height: 6)
                         .animation(.spring(response: 0.3), value: completionPercentage)
                         .edgesIgnoringSafeArea(.horizontal)
-                        // FIXED: Make celebration animation more visible
+                        // Celebration animation overlay
                         .overlay(
                             Group {
                                 if completionPercentage >= 100 && celebrate {
@@ -84,7 +81,7 @@ struct ActiveWorkoutView: View {
                             }
                         )
                     
-                    // IMPROVED: Percentage indicator positioning
+                    // Percentage indicator positioning
                     GeometryReader { geometry in
                         // Calculate bubble position constrained within the screen
                         let progressWidth = min(geometry.size.width * CGFloat(completionPercentage / 100), geometry.size.width)
@@ -110,7 +107,7 @@ struct ActiveWorkoutView: View {
                     }
                 }
                 .frame(height: 24) // Increased height to accommodate the bubble ON the bar
-                // FIXED: Add onChange modifier to detect 100% completion
+                // onChange modifier to detect 100% completion
                 .onChange(of: completionPercentage) { newValue in
                     // Check if we've just reached 100%
                     if newValue >= 100 && lastCompletionPercentage < 100 {
@@ -196,7 +193,7 @@ struct ActiveWorkoutView: View {
                         
                         // Exercise cards - always expanded
                         ForEach(sessionManager.exercises) { exercise in
-                            ExerciseCard(
+                            ActiveWorkoutExerciseCard(
                                 exercise: exercise,
                                 onSetComplete: { setIndex, isComplete in
                                     if let exerciseIndex = sessionManager.exercises.firstIndex(where: { $0.id == exercise.id }) {
@@ -438,9 +435,15 @@ struct ActiveWorkoutView: View {
             .background(BackgroundClearView())
         }
         .sheet(isPresented: $showingExerciseSelection) {
-            ExerciseSelectionView { exercise in
-                sessionManager.addExercise(exercise)
-            }
+            ExerciseSelectionView(
+                selectedExercises: [],  // No exercises selected initially
+                onSelectionComplete: { exercises in
+                    // Add each selected exercise to the session
+                    for exercise in exercises {
+                        sessionManager.addExercise(exercise)
+                    }
+                }
+            )
             .environmentObject(dataManager)
         }
         .onAppear {
@@ -450,40 +453,6 @@ struct ActiveWorkoutView: View {
             if !sessionManager.isActive {
                 sessionManager.startWorkout(template: template)
             }
-            
-            // Set up completion notification observer
-            setupNotificationObserver()
-        }
-        .onDisappear {
-            // Remove the notification observer
-            cleanupNotificationObserver()
-        }
-    }
-    
-    // Setup notification observer
-    private func setupNotificationObserver() {
-        let notificationName = Notification.Name.workoutSessionCompleted
-        workoutCompletionObserver = NotificationCenter.default.addObserver(
-            forName: notificationName,
-            object: nil,
-            queue: .main
-        ) { _ in
-            self.onEnd()
-            self.dismiss()
-        }
-    }
-    
-    // Clean up notification observer
-    private func cleanupNotificationObserver() {
-        // Store observer in local variable first
-        let observerToRemove = workoutCompletionObserver
-        
-        // Set property to nil first
-        workoutCompletionObserver = nil
-        
-        // Then remove the observer if it exists
-        if let observer = observerToRemove {
-            NotificationCenter.default.removeObserver(observer)
         }
     }
     
@@ -513,11 +482,9 @@ struct ActiveWorkoutView: View {
         // After animation is hidden, complete the workout
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             sessionManager.completeWorkout()
-            // View will be dismissed by notification observer
-            NotificationCenter.default.post(
-                name: .workoutSessionCompleted, 
-                object: nil
-            )
+            // Call onEnd directly instead of using notification
+            onEnd()
+            dismiss()
         }
     }
 }
@@ -592,7 +559,7 @@ struct WorkoutCompletionAnimation: View {
 // MARK: - Supporting Views
 
 // Always expanded exercise card
-struct ExerciseCard: View {
+struct ActiveWorkoutExerciseCard: View {
     var exercise: WorkoutExercise
     var onSetComplete: (Int, Bool) -> Void
     var onAddSet: () -> Void

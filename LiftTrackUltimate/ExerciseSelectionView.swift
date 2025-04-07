@@ -1,238 +1,175 @@
 import SwiftUI
 
 struct ExerciseSelectionView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var dataManager: DataManager
-    @State private var searchText = ""
-    @State private var selectedFilter = "All"
-    @State private var selectedExerciseIds: Set<UUID> = []
-    @State private var showConfirmation = false
-    @State private var animateFilters = false
-    @State private var animateList = false
-    @State private var initialLoad = true
-    @State private var shouldDismiss = false
-    @State private var lastSelectedExercise: Exercise? = nil
     
-    var onExerciseSelected: (Exercise) -> Void
+    @State private var selectedFilter: ExerciseCategory?
+    @State private var searchText: String = ""
+    @State private var selectedExercisesMap: [UUID: Bool] = [:]
     
-    // Enhanced muscle group filters with icons
-    private let filters = [
-        ("All", "figure.mixed.cardio"),
-        ("Chest", "figure.arms.open"),
-        ("Back", "figure.strengthtraining.traditional"),
-        ("Shoulders", "figure.arms.open"),
-        ("Arms", "dumbbell.fill"),
-        ("Legs", "figure.run"),
-        ("Core", "figure.core.training"),
-        ("Cardio", "heart.circle")
-    ]
+    // Pre-compute view models for better performance
+    @State private var exerciseViewModels: [ExerciseListViewModel] = []
     
-    var filteredExercises: [Exercise] {
-        var exercises = dataManager.exercises
-        
-        // Apply search filter
-        if !searchText.isEmpty {
-            exercises = exercises.filter { $0.name.lowercased().contains(searchText.lowercased()) }
-        }
-        
-        // Apply category filter
-        if selectedFilter != "All" {
-            exercises = exercises.filter { exercise in
-                exercise.muscleGroups.contains(selectedFilter) || exercise.category == selectedFilter
-            }
-        }
-        
-        return exercises
+    // Original selected exercises (for comparison)
+    let initialSelectedExercises: [Exercise]
+    let onSelectionComplete: ([Exercise]) -> Void
+    
+    init(selectedExercises: [Exercise], onSelectionComplete: @escaping ([Exercise]) -> Void) {
+        self.initialSelectedExercises = selectedExercises
+        self.onSelectionComplete = onSelectionComplete
     }
     
     var body: some View {
-        ZStack {
-            // Background color
-            Color.black.edgesIgnoringSafeArea(.all)
-            
-            VStack(spacing: 0) {
-                // Custom header
-                HStack {
-                    Text("Select Exercise")
-                        .font(.system(size: 28, weight: .bold))
+        VStack(spacing: 0) {
+            // Header with dismiss button and title
+            HStack {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(.leading)
+                        .padding(8)
+                        .background(Circle().fill(Color(.systemGray5).opacity(0.3)))
+                }
+                
+                Spacer()
+                
+                Text("Add Exercises")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button(action: {
+                    // Get the selected exercises
+                    let selectedExercises = exerciseViewModels
+                        .filter { $0.isSelected }
+                        .map { $0.exercise }
                     
-                    Spacer()
-                    
-                    // Done button
+                    // Complete selection
+                    onSelectionComplete(selectedExercises)
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
+            .padding()
+            .background(Color.black.opacity(0.2))
+            
+            // Search bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                
+                TextField("Search exercises", text: $searchText)
+                    .foregroundColor(.white)
+                    .autocorrectionDisabled(true)
+                
+                if !searchText.isEmpty {
                     Button(action: {
-                        dismiss()
+                        searchText = ""
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
                             .foregroundColor(.gray)
-                            .padding(.trailing)
                     }
+                    .buttonStyle(BorderlessButtonStyle())
                 }
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-                
-                // Search bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(searchText.isEmpty ? .gray : .blue)
-                        .font(.system(size: 18))
-                        .padding(.leading, 12)
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray6).opacity(0.2))
+            )
+            .padding([.horizontal, .top])
+            
+            // Category filter chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    FilterChip(
+                        title: "All",
+                        isSelected: selectedFilter == nil,
+                        action: { selectedFilter = nil }
+                    )
                     
-                    TextField("Search exercises...", text: $searchText)
-                        .foregroundColor(.white)
-                        .padding(.vertical, 12)
-                    
-                    if !searchText.isEmpty {
-                        Button(action: {
-                            searchText = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                                .padding(.trailing, 12)
-                        }
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(.systemGray6).opacity(0.2))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    ForEach(ExerciseCategory.allCases, id: \.self) { category in
+                        FilterChip(
+                            title: category.rawValue,
+                            isSelected: selectedFilter == category,
+                            action: { selectedFilter = category }
                         )
-                )
-                .padding(.horizontal)
-                .padding(.bottom, 16)
+                    }
+                }
+                .padding([.horizontal, .top])
+            }
+            
+            // Exercise list - optimized for performance
+            List {
+                let filteredModels = filteredExercises()
                 
-                // Filter buttons with icons
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(filters, id: \.0) { filter in
-                            Button(action: {
-                                selectedFilter = filter.0
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: filter.1)
-                                        .font(.system(size: 14))
-                                    
-                                    Text(filter.0)
-                                        .font(.subheadline)
-                                        .fontWeight(selectedFilter == filter.0 ? .semibold : .medium)
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedFilter == filter.0 ?
-                                              Color.blue :
-                                              Color(.systemGray6).opacity(0.2)
-                                        )
-                                )
-                                .foregroundColor(.white)
+                ForEach(filteredModels) { viewModel in
+                    OptimizedExerciseCell(
+                        viewModel: viewModel,
+                        onSelect: {
+                            // Find the viewModel in our array and toggle selection
+                            if let index = exerciseViewModels.firstIndex(where: { $0.id == viewModel.id }) {
+                                exerciseViewModels[index].isSelected.toggle()
                             }
                         }
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 16)
-                }
-                
-                // Exercise list
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filteredExercises) { exercise in
-                            ExerciseSelectionCard(
-                                exercise: exercise,
-                                isSelected: selectedExerciseIds.contains(exercise.id),
-                                onSelect: {
-                                    handleExerciseSelection(exercise)
-                                }
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
-                }
-            }
-            
-            // Success confirmation popup
-            if showConfirmation, let exercise = lastSelectedExercise {
-                VStack {
-                    Spacer()
-                    
-                    HStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.green)
-                        
-                        Text("Exercise Added")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(.systemGray6).opacity(0.8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                            )
                     )
-                    .padding(.bottom, 40)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
             }
+            .listStyle(PlainListStyle())
+            .background(Color.black)
         }
+        .background(Color.black.edgesIgnoringSafeArea(.all))
         .onAppear {
-            // Trigger animations when view appears
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                animateFilters = true
-            }
+            // Pre-compute view models just once
+            initializeViewModels()
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                animateList = true
-            }
-            
-            // Mark as not initial load after first appearance
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                initialLoad = false
-            }
+            // Disable haptic feedback for better performance
+            UIImpactFeedbackGenerator.disableFeedback = true
         }
-        .onChange(of: shouldDismiss) { newValue in
-            if newValue {
-                dismiss()
-            }
+        .onDisappear {
+            // Re-enable haptic feedback
+            UIImpactFeedbackGenerator.disableFeedback = false
         }
     }
     
-    private func handleExerciseSelection(_ exercise: Exercise) {
-        // Toggle selection state
-        if selectedExerciseIds.contains(exercise.id) {
-            selectedExerciseIds.remove(exercise.id)
-        } else {
-            selectedExerciseIds.insert(exercise.id)
+    // Initialize view models with selection state
+    private func initializeViewModels() {
+        let selectedIds = Set(initialSelectedExercises.map { $0.id })
+        exerciseViewModels = dataManager.exercises.map { exercise in
+            ExerciseListViewModel(
+                exercise: exercise,
+                isSelected: selectedIds.contains(exercise.id)
+            )
         }
-        
-        // Store selected exercise
-        lastSelectedExercise = exercise
-        
-        // Haptic feedback
-        let impactMed = UIImpactFeedbackGenerator(style: .medium)
-        impactMed.impactOccurred()
-        
-        // Call the selection handler
-        onExerciseSelected(exercise)
-        
-        // Show confirmation
-        withAnimation(.spring()) {
-            showConfirmation = true
-        }
-        
-        // Hide confirmation after a delay but don't dismiss the view
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                showConfirmation = false
+    }
+    
+    // Filter exercises based on category and search text
+    private func filteredExercises() -> [ExerciseListViewModel] {
+        exerciseViewModels.filter { viewModel in
+            // Filter by category - compare with enum's rawValue 
+            let matchesCategory: Bool
+            if let filter = selectedFilter {
+                matchesCategory = viewModel.exercise.category.lowercased() == filter.rawValue.lowercased()
+            } else {
+                matchesCategory = true
             }
+            
+            // Filter by search text
+            let matchesSearch = searchText.isEmpty || 
+                viewModel.name.lowercased().contains(searchText.lowercased())
+            
+            return matchesCategory && matchesSearch
         }
     }
 }
@@ -327,5 +264,153 @@ struct ExerciseSelectionCard: View {
         
         // Default icon
         return "figure.mixed.cardio"
+    }
+}
+
+// MARK: - Performance Optimized Components
+
+// PreCached exercise view model to reduce recalculations
+class ExerciseListViewModel: Identifiable {
+    let id: UUID
+    let exercise: Exercise
+    var isSelected: Bool
+    
+    // Pre-compute expensive properties
+    let name: String
+    let categoryName: String
+    let primaryMuscleGroup: String
+    
+    init(exercise: Exercise, isSelected: Bool = false) {
+        self.id = exercise.id
+        self.exercise = exercise
+        self.isSelected = isSelected
+        
+        // Pre-compute values
+        self.name = exercise.name
+        self.categoryName = exercise.category
+        self.primaryMuscleGroup = exercise.muscleGroups.first ?? "General"
+    }
+}
+
+// Separate extension for Equatable conformance
+extension ExerciseListViewModel: Equatable {
+    static func == (lhs: ExerciseListViewModel, rhs: ExerciseListViewModel) -> Bool {
+        return lhs.id == rhs.id && lhs.isSelected == rhs.isSelected
+    }
+}
+
+// Separate extension for Hashable conformance  
+extension ExerciseListViewModel: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(isSelected)
+    }
+}
+
+// Optimized exercise cell with minimal redrawing
+struct OptimizedExerciseCell: View {
+    // Use a view model to avoid rebuilds
+    let viewModel: ExerciseListViewModel
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                // Icon for category
+                ZStack {
+                    Circle()
+                        .fill(getCategoryColor(viewModel.categoryName).opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: getCategoryIcon(viewModel.categoryName))
+                        .font(.system(size: 16))
+                        .foregroundColor(getCategoryColor(viewModel.categoryName))
+                }
+                
+                // Exercise details
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.name)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    HStack {
+                        Text(viewModel.categoryName)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        if !viewModel.primaryMuscleGroup.isEmpty {
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            
+                            Text(viewModel.primaryMuscleGroup)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                // Selection indicator
+                if viewModel.isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6).opacity(0.2))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(viewModel.isSelected ? Color.blue.opacity(0.5) : Color.clear, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(BorderlessButtonStyle())
+    }
+    
+    // Helper functions that don't depend on changing state
+    private func getCategoryColor(_ category: String) -> Color {
+        switch category.lowercased() {
+        case "strength": return .blue
+        case "cardio": return .green
+        case "hiit": return .orange
+        case "flexibility": return .purple
+        default: return .blue
+        }
+    }
+    
+    private func getCategoryIcon(_ category: String) -> String {
+        switch category.lowercased() {
+        case "strength": return "dumbbell.fill"
+        case "cardio": return "heart.fill"
+        case "hiit": return "timer"
+        case "flexibility": return "figure.flexibility"
+        default: return "fitness"
+        }
+    }
+}
+
+// Simple, lightweight filter chip component
+struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                .foregroundColor(isSelected ? .white : .gray)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.blue : Color(.systemGray6).opacity(0.2))
+                )
+        }
+        .buttonStyle(BorderlessButtonStyle())
     }
 }

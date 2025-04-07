@@ -107,9 +107,12 @@ struct WorkoutView: View {
             }
         }
         .sheet(isPresented: $showingCreateTemplateSheet) {
-            EnhancedTemplateCreationView(onSave: { newTemplate in
-                dataManager.saveTemplate(newTemplate)
-            })
+            EnhancedTemplateCreationView(
+                existingTemplate: nil,  // Explicitly pass nil since we're creating a new template
+                onSave: { newTemplate in
+                    dataManager.saveTemplate(newTemplate)
+                }
+            )
             .environmentObject(dataManager)
         }
         .onAppear {

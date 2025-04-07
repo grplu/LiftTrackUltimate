@@ -6,7 +6,7 @@ struct WorkoutBackgroundView: View {
     
     var body: some View {
         LinearGradient(
-            gradient: Gradient(colors: [Color.black, Color(hex: "101010")]),
+            gradient: Gradient(colors: [Color.black, Color("101010")]),
             startPoint: .top,
             endPoint: .bottom
         )
@@ -93,7 +93,7 @@ struct WorkoutWelcomeView: View {
             Rectangle()
                 .fill(Color.clear)
                 .frame(height: 1)
-                .background(Color(hex: "3A3F42"))
+                .background(Color("3A3F42"))
                 .padding(.top, 68)
         )
     }

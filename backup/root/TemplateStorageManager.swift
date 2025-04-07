@@ -1,8 +1,8 @@
 import Foundation
 
 // A dedicated class to handle storage for template properties
-class TemplateStorageManager {
-    static let shared = TemplateStorageManager()
+public class TemplateStorageManager {
+    public static let shared = TemplateStorageManager()
     
     private let weightKey = "templateExerciseWeight"
     private var weightCache: [UUID: Double] = [:]
@@ -13,11 +13,11 @@ class TemplateStorageManager {
     
     // MARK: - Icon Color Storage
     
-    func getIconColor(for template: WorkoutTemplate) -> String? {
+    public func getIconColor(for template: WorkoutTemplate) -> String? {
         return UserDefaults.standard.string(forKey: "template_color_\(template.id.uuidString)")
     }
     
-    func setIconColor(_ color: String?, for template: WorkoutTemplate) {
+    public func setIconColor(_ color: String?, for template: WorkoutTemplate) {
         if let color = color {
             UserDefaults.standard.set(color, forKey: "template_color_\(template.id.uuidString)")
         } else {
@@ -28,7 +28,7 @@ class TemplateStorageManager {
     // MARK: - Weight Storage
     
     // Save target weight for a template exercise
-    func saveTargetWeight(_ weight: Double?, for exercise: TemplateExercise) {
+    public func saveTargetWeight(_ weight: Double?, for exercise: TemplateExercise) {
         guard let weight = weight else {
             weightCache.removeValue(forKey: exercise.id)
             return
@@ -38,12 +38,12 @@ class TemplateStorageManager {
     }
     
     // Get target weight for a template exercise
-    func getTargetWeight(for exercise: TemplateExercise) -> Double? {
+    public func getTargetWeight(for exercise: TemplateExercise) -> Double? {
         return weightCache[exercise.id]
     }
     
     // Clear all cached weights
-    func clearWeightCache() {
+    public func clearWeightCache() {
         weightCache.removeAll()
     }
-}
+} 
