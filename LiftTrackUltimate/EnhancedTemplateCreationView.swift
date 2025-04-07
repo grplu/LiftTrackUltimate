@@ -951,6 +951,7 @@ extension UIImpactFeedbackGenerator {
     static var disableFeedback = false
     
     // Simple non-swizzling approach for haptic control
+    // This method is intentionally designed to not throw errors for ease of use in UI code
     static func safeImpactOccurred(intensity: CGFloat = 1.0) {
         if !disableFeedback {
             let generator = UIImpactFeedbackGenerator(style: .medium)

@@ -77,6 +77,7 @@ struct HeartRateWidget: View {
     }
 }
 
+@MainActor
 class HeartRateWidgetViewModel: ObservableObject {
     private let healthKitManager = HealthKitManager.shared
     private var heartRateQuery: HKQuery?
@@ -123,10 +124,13 @@ class HeartRateWidgetViewModel: ObservableObject {
     }
     
     func requestAuthorization() {
-        healthKitManager.requestAuthorization { [weak self] success, error in
-            if success {
-                DispatchQueue.main.async {
-                    self?.startMonitoring()
+        Task {
+            await healthKitManager.requestAuthorization { [weak self] success, error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if success {
+                        self.startMonitoring()
+                    }
                 }
             }
         }
@@ -140,24 +144,35 @@ class HeartRateWidgetViewModel: ObservableObject {
         isMonitoring = true
         
         // Set up real HealthKit monitoring with a persistent query
-        heartRateQuery = healthKitManager.setupContinuousHeartRateObserver { [weak self] heartRate in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                
-                // Only update if the heart rate is non-zero
-                if heartRate > 0 {
-                    self.heartRate = heartRate
-                    self.lastUpdate = Date()
-                    self.watchConnected = true
+        Task {
+            let query = await healthKitManager.setupContinuousHeartRateObserver { [weak self] heartRate in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    
+                    // Only update if the heart rate is non-zero
+                    if heartRate > 0 {
+                        self.heartRate = heartRate
+                        self.lastUpdate = Date()
+                        self.watchConnected = true
+                    }
                 }
             }
+            
+            // Store the query for later cleanup
+            self.heartRateQuery = query
+        }
+    }
+    
+    func stopQuery(_ query: HKQuery) {
+        Task {
+            await healthKitManager.stopQuery(query)
         }
     }
     
     func stopMonitoring() {
         // Stop the existing query if it exists
         if let query = heartRateQuery {
-            healthKitManager.stopQuery(query)
+            stopQuery(query)
             heartRateQuery = nil
         }
         
@@ -166,6 +181,9 @@ class HeartRateWidgetViewModel: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        // Use the non-actor-isolated method that can be safely called from deinit
+        if let queryToStop = heartRateQuery {
+            healthKitManager.safeStopQuery(queryToStop)
+        }
     }
 }

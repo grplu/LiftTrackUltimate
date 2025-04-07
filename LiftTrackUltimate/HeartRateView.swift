@@ -172,6 +172,7 @@ struct HeartRateZoneView: View {
     }
 }
 
+@MainActor
 class HeartRateViewModel: ObservableObject {
     private let healthKitManager = HealthKitManager.shared
     private var timer: Timer?
@@ -217,14 +218,17 @@ class HeartRateViewModel: ObservableObject {
     }
     
     func requestAuthorization() {
-        healthKitManager.requestAuthorization { success, error in
-            DispatchQueue.main.async {
-                if success {
-                    // Automatically start monitoring when authorized
-                    self.watchConnected = true
-                    self.startMonitoring()
-                } else {
-                    print("Failed to get authorization: \(error?.localizedDescription ?? "unknown error")")
+        Task {
+            await healthKitManager.requestAuthorization { [weak self] success, error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if success {
+                        // Automatically start monitoring when authorized
+                        self.watchConnected = true
+                        self.startMonitoring()
+                    } else {
+                        print("Failed to get authorization: \(error?.localizedDescription ?? "unknown error")")
+                    }
                 }
             }
         }
@@ -239,18 +243,24 @@ class HeartRateViewModel: ObservableObject {
         
         // Set up timer for simulated updates as a fallback
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.simulateHeartRate()
+            // Dispatch to MainActor since we're updating UI properties
+            Task { @MainActor in
+                self?.simulateHeartRate()
+            }
         }
         
         // Set up real HealthKit monitoring
-        healthKitManager.startHeartRateQuery(quantityTypeIdentifier: .heartRate) { [weak self] heartRate in
-            DispatchQueue.main.async {
-                self?.heartRate = heartRate
-                self?.lastUpdate = Date()
-                self?.watchConnected = true
-                
-                // Invalidate timer since we're getting real data
-                self?.timer?.invalidate()
+        Task {
+            await healthKitManager.startHeartRateQuery(quantityTypeIdentifier: .heartRate) { [weak self] heartRate in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.heartRate = heartRate
+                    self.lastUpdate = Date()
+                    self.watchConnected = true
+                    
+                    // Invalidate timer since we're getting real data
+                    self.timer?.invalidate()
+                }
             }
         }
     }
@@ -274,7 +284,10 @@ class HeartRateViewModel: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        // Using an actor-isolating property from deinit
+        if let timer = timer {
+            timer.invalidate()
+        }
     }
 }
 

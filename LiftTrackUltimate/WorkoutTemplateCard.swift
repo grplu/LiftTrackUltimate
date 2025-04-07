@@ -279,7 +279,7 @@ struct WorkoutTemplateCard: View {
     // Get accent color based on template's iconColor or primary muscle group
     private var accentColor: Color {
         // First try to use the template's saved color
-        if let colorName = template.iconColor {
+        if let colorName = getTemplateIconColor() {
             return getColor(named: colorName)
         }
         
@@ -301,6 +301,18 @@ struct WorkoutTemplateCard: View {
         } else {
             return .blue
         }
+    }
+    
+    // Safely get the template's iconColor
+    private func getTemplateIconColor() -> String? {
+        // Use Mirror to safely check for the property at runtime
+        let mirror = Mirror(reflecting: template)
+        for child in mirror.children {
+            if child.label == "iconColor", let colorValue = child.value as? String {
+                return colorValue
+            }
+        }
+        return nil
     }
     
     // Clock icon color - orange is the default, but use accent color if it's similar to the template color

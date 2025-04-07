@@ -317,10 +317,8 @@ struct QuickStatsView: View {
             }
             
             // Last workout date
-            if performance.date != nil {
-                // Create a separate view to handle date display
-                DateDisplayBox(date: performance.date)
-            }
+            // Create a separate view to handle date display
+            DateDisplayBox(date: performance.date)
         }
         .opacity(animateContent ? 1.0 : 0)
         .offset(y: animateContent ? 0 : 20)

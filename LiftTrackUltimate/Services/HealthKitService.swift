@@ -93,20 +93,23 @@ class HealthKitService: NSObject, ObservableObject {
         let startDate = workout.date
         let endDate = workout.date.addingTimeInterval(workout.duration)
         
-        let hkWorkout = HKWorkout(
-            activityType: .traditionalStrengthTraining,
-            start: startDate,
-            end: endDate,
-            duration: workout.duration,
-            totalEnergyBurned: nil,
-            totalDistance: nil,
-            metadata: [
-                "workoutName": workout.name,
-                "workoutId": workout.id.uuidString
-            ]
-        )
+        // Create a workout builder with the configuration
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: nil)
         
-        try await healthStore.save(hkWorkout)
+        // Begin the workout builder
+        try await builder.beginCollection(at: startDate)
+        
+        // End the workout builder
+        try await builder.endCollection(at: endDate)
+        
+        // Add metadata
+        try await builder.addMetadata([
+            "workoutName": workout.name,
+            "workoutId": workout.id.uuidString
+        ])
+        
+        // Finish and save the workout
+        try await builder.finishWorkout()
     }
     
     // MARK: - Statistics
@@ -134,7 +137,7 @@ class HealthKitService: NSObject, ObservableObject {
                 let stats = HealthKitWorkoutStatistics(
                     totalWorkouts: workouts.count,
                     totalDuration: workouts.reduce(0) { $0 + $1.duration },
-                    totalCalories: workouts.reduce(0) { $0 + ($1.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0) }
+                    totalCalories: workouts.reduce(0) { $0 + ($1.statistics(for: HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!)?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0) }
                 )
                 
                 continuation.resume(returning: stats)

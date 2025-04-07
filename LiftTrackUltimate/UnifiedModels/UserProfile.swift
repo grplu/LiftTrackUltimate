@@ -68,6 +68,7 @@ struct WorkoutStats: Codable {
     var totalDuration: TimeInterval = 0
     var averageHeartRate: Double = 0
     var caloriesBurned: Double = 0
+    var totalWeight: Double = 0
     var personalBests: [String: Double] = [:]  // Exercise name to weight/time
     var weeklyProgress: [Int: Int] = [:]  // Day of week to number of workouts
 }

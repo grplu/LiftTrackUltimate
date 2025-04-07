@@ -43,8 +43,6 @@ struct NewExerciseView: View {
     
     // Form data
     @State private var name: String = ""
-    @State private var selectedCategory: ExerciseCategory = .strength
-    @State private var equipment: String = ""
     @State private var instructions: String = ""
     @State private var selectedMuscleGroups: Set<MuscleGroup> = []
     @State private var selectedMuscleSubregions: Set<String> = []
@@ -61,11 +59,8 @@ struct NewExerciseView: View {
     
     // Focus fields enum
     private enum Field {
-        case name, equipment, instructions
+        case name, instructions
     }
-    
-    // Available categories
-    private let categories = ["Strength", "Cardio", "Flexibility", "Balance"]
     
     var body: some View {
         NavigationView {
@@ -79,11 +74,7 @@ struct NewExerciseView: View {
                         nameField
                             .padding(.top, 8)
                         
-                        categorySelection
-                        
                         muscleGroupsSelection
-                        
-                        equipmentField
                         
                         instructionsField
                         
@@ -177,83 +168,45 @@ struct NewExerciseView: View {
         }
     }
     
-    private var equipmentField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Equipment")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            TextField("", text: $equipment)
-                .focused($focusedField, equals: .equipment)
-                .font(.system(size: 16))
-                .foregroundColor(.white)
-                .padding(12)
-                .background(Color(.systemGray6).opacity(0.3))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                )
-                .overlay(
-                    Group {
-                        if equipment.isEmpty {
-                            HStack {
-                                Text("Enter required equipment (optional)")
-                                    .foregroundColor(.gray)
-                                    .padding(.leading, 12)
-                                Spacer()
-                            }
-                            .allowsHitTesting(false)
-                        }
-                    }
-                )
-        }
-    }
-    
-    private var categorySelection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Category")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(ExerciseCategory.allCases, id: \.self) { category in
-                        Button(action: {
-                            selectedCategory = category
-                        }) {
-                            Text(category.rawValue)
-                                .font(.system(size: 14))
-                                .foregroundColor(selectedCategory == category ? .white : .gray)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(selectedCategory == category ? Color.blue : Color(.systemGray6).opacity(0.3))
-                                )
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-        }
-    }
-    
     private var muscleGroupsSelection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Muscle Groups")
                 .font(.headline)
                 .foregroundColor(.white)
             
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            // Use fewer columns for better performance
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(MuscleGroup.allCases.filter { $0 != .none }, id: \.self) { group in
                     Button(action: {
                         handleMuscleGroupTap(group)
                     }) {
-                        muscleGroupCard(group)
+                        HStack {
+                            Image(systemName: group.iconName)
+                                .font(.system(size: 20))
+                                .foregroundColor(selectedMuscleGroups.contains(group) ? .blue : .gray)
+                                .frame(width: 40, height: 40)
+                                .background(Color(.systemGray6).opacity(0.3))
+                                .clipShape(Circle())
+                            
+                            Text(group.displayName)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            
+                            Spacer()
+                            
+                            if selectedMuscleGroups.contains(group) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(selectedMuscleGroups.contains(group) ? Color.blue.opacity(0.15) : Color.clear)
+                        )
                     }
-                    .buttonStyle(ScaleButtonStyle())
+                    .buttonStyle(PlainButtonStyle()) // Use PlainButtonStyle for better performance
                 }
             }
             
@@ -264,7 +217,7 @@ struct NewExerciseView: View {
                     .foregroundColor(.white)
                     .padding(.top, 16)
                 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible())], spacing: 8) {
                     ForEach(Array(selectedMuscleSubregions).sorted(), id: \.self) { subregion in
                         HStack {
                             Text(subregion)
@@ -291,28 +244,6 @@ struct NewExerciseView: View {
                 }
             }
         }
-    }
-    
-    private func muscleGroupCard(_ group: MuscleGroup) -> some View {
-        VStack {
-            Image(systemName: group.iconName)
-                .font(.system(size: 24))
-                .foregroundColor(selectedMuscleGroups.contains(group) ? .blue : .gray)
-                .frame(width: 50, height: 50)
-                .background(Color(.systemGray6).opacity(0.3))
-                .clipShape(Circle())
-            
-            Text(group.displayName)
-                .font(.caption)
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(selectedMuscleGroups.contains(group) ? Color.blue.opacity(0.15) : Color.clear)
-        )
     }
     
     private var instructionsField: some View {
@@ -364,9 +295,9 @@ struct NewExerciseView: View {
         .opacity(name.isEmpty ? 0.6 : 1.0)
     }
     
-    // Improved subregion sheet
+    // Optimized subregion sheet
     private func muscleSubregionSheet(for muscleGroup: MuscleGroup) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             HStack {
                 Text(muscleGroup.displayName)
                     .font(.headline)
@@ -384,39 +315,31 @@ struct NewExerciseView: View {
                         .foregroundColor(.gray)
                 }
             }
-            .padding(.bottom, 8)
             
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(muscleGroup.subregions, id: \.self) { subregion in
-                        let isSelected = selectedMuscleSubregions.contains(subregion)
-                        Button(action: {
-                            toggleMuscleSubregion(subregion)
-                        }) {
-                            HStack {
-                                Text(subregion)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                
-                                Spacer()
-                                
-                                if isSelected {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(isSelected ? Color.blue.opacity(0.15) : Color(.systemGray6).opacity(0.3))
-                            )
-                        }
-                        .buttonStyle(ScaleButtonStyle())
+            // Use a List instead of ScrollView with LazyVGrid for better performance
+            List(muscleGroup.subregions, id: \.self) { subregion in
+                let isSelected = selectedMuscleSubregions.contains(subregion)
+                HStack {
+                    Text(subregion)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
                     }
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    toggleMuscleSubregion(subregion)
+                }
+                .listRowBackground(isSelected ? Color.blue.opacity(0.15) : Color(.systemGray6).opacity(0.3))
             }
+            .listStyle(PlainListStyle())
+            .background(Color.black)
+            .frame(height: 250)
             
             Button(action: {
                 withAnimation {
@@ -433,9 +356,9 @@ struct NewExerciseView: View {
                             .fill(Color.blue)
                     )
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(PlainButtonStyle())
         }
-        .padding(20)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.black)
@@ -454,11 +377,11 @@ struct NewExerciseView: View {
         let newExercise = Exercise(
             id: UUID(),
             name: name,
-            category: selectedCategory.rawValue,
+            category: "Strength", // Default to strength as category is removed
             muscleGroups: Array(selectedMuscleGroups).map { $0.name },
             instructions: instructions.isEmpty ? nil : instructions,
             isFavorite: false,
-            equipment: equipment.isEmpty ? nil : equipment
+            equipment: nil // Equipment field is removed
         )
         
         dataManager.saveExercise(newExercise)
@@ -498,9 +421,8 @@ struct NewExerciseView: View {
         } else {
             selectedMuscleGroups.insert(group)
         }
-        withAnimation {
-            expandedMuscleGroup = group
-        }
+        // Remove the automatic expansion of muscle group sheet
+        // No longer showing the confirmation prompt
     }
 }
 

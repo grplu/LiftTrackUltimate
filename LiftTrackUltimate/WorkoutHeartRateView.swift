@@ -44,6 +44,7 @@ struct WorkoutHeartRateView: View {
     }
 }
 
+@MainActor
 class WorkoutHeartRateViewModel: ObservableObject {
     private let healthKitManager = HealthKitManager.shared
     private var timer: Timer?
@@ -67,10 +68,13 @@ class WorkoutHeartRateViewModel: ObservableObject {
     }
     
     func requestAuthorization() {
-        healthKitManager.requestAuthorization { [weak self] success, error in
-            if success {
-                DispatchQueue.main.async {
-                    self?.startMonitoring()
+        Task {
+            await healthKitManager.requestAuthorization { [weak self] success, error in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if success {
+                        self.startMonitoring()
+                    }
                 }
             }
         }
@@ -85,20 +89,25 @@ class WorkoutHeartRateViewModel: ObservableObject {
         
         // Set up timer for simulated updates as a fallback
         timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.simulateHeartRate()
+            Task { @MainActor in
+                self?.simulateHeartRate()
+            }
         }
         
         // Set up real HealthKit monitoring
-        healthKitManager.startHeartRateQuery(quantityTypeIdentifier: .heartRate) { [weak self] heartRate in
-            DispatchQueue.main.async {
-                self?.heartRate = heartRate
-                self?.lastUpdate = Date()
-                self?.watchConnected = true
-                
-                // Once we get real data, we can stop the simulation
-                if heartRate > 0 {
-                    self?.timer?.invalidate()
-                    self?.timer = nil
+        Task {
+            await healthKitManager.startHeartRateQuery(quantityTypeIdentifier: .heartRate) { [weak self] heartRate in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.heartRate = heartRate
+                    self.lastUpdate = Date()
+                    self.watchConnected = true
+                    
+                    // Once we get real data, we can stop the simulation
+                    if heartRate > 0 {
+                        self.timer?.invalidate()
+                        self.timer = nil
+                    }
                 }
             }
         }
@@ -115,7 +124,9 @@ class WorkoutHeartRateViewModel: ObservableObject {
     }
     
     deinit {
-        timer?.invalidate()
-        timer = nil
+        // Using an actor-isolating property from deinit
+        if let timer = timer {
+            timer.invalidate()
+        }
     }
 }

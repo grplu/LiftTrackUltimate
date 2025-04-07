@@ -94,13 +94,10 @@ class WorkoutSessionManager: ObservableObject {
             exercises: exercises
         )
         
-        do {
-            try dataService.saveWorkout(workout)
-            resetWorkoutState()
-            NotificationCenter.default.post(name: .workoutSessionCompleted, object: nil)
-        } catch {
-            self.error = error
-        }
+        // Save the workout directly without try-catch since it doesn't throw
+        dataService.saveWorkout(workout)
+        resetWorkoutState()
+        NotificationCenter.default.post(name: .workoutSessionCompleted, object: nil)
     }
     
     /// Cancel the current workout without saving
@@ -221,7 +218,7 @@ class WorkoutSessionManager: ObservableObject {
         for templateExercise in template.exercises {
             var exerciseSets: [ExerciseSet] = []
             
-            for i in 0..<templateExercise.targetSets {
+            for _ in 0..<templateExercise.targetSets {
                 // Use default values if DataManager is not available
                 let reps = templateExercise.targetReps ?? 10
                 let weight: Double? = nil

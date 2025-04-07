@@ -2,7 +2,9 @@ import HealthKit
 import Foundation
 import Combine
 
-class HealthKitManager: ObservableObject {
+// Make HealthKitManager conform to Sendable
+@MainActor
+class HealthKitManager: ObservableObject, @unchecked Sendable {
     // Use a shared instance to avoid ambiguity
     static let shared = HealthKitManager()
     
@@ -117,7 +119,7 @@ class HealthKitManager: ObservableObject {
         for workout in workouts {
             totalDuration += workout.duration
             
-            if let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) {
+            if let calories = workout.statistics(for: HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!)?.sumQuantity()?.doubleValue(for: .kilocalorie()) {
                 totalCalories += calories
             }
             
@@ -140,6 +142,101 @@ class HealthKitManager: ObservableObject {
     
     // MARK: - Save Workout Data
     
+    // New async throwing version that doesn't use completion handlers
+    func saveWorkout(_ workout: AppWorkout) async throws {
+        // Check if HealthKit is available and authorized
+        guard isHealthKitAvailable, isAuthorized else {
+            throw NSError(domain: "HealthKitManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "HealthKit is not available or not authorized"])
+        }
+        
+        // Create a proper HKWorkout to save to HealthKit
+        let workoutConfiguration = HKWorkoutConfiguration()
+        workoutConfiguration.activityType = .traditionalStrengthTraining
+        workoutConfiguration.locationType = .indoor
+        
+        // Get start date from the workout
+        let startDate = workout.date
+        let endDate = Date(timeInterval: workout.duration, since: startDate)
+        
+        // Calculate calories based on workout duration
+        var calories: HKQuantity? = nil
+        let estimatedCalories = calculateEstimatedCalories(for: workout)
+        if estimatedCalories > 0 {
+            calories = HKQuantity(unit: .kilocalorie(), doubleValue: estimatedCalories)
+        }
+        
+        // Create metadata
+        var metadata: [String: Any] = [
+            "com.lift.workoutId": workout.id.uuidString,
+            "com.lift.workoutName": workout.name
+        ]
+        
+        // Add exercises information if available
+        if !workout.exercises.isEmpty {
+            let exerciseNames = workout.exercises.map { $0.exercise.name }.joined(separator: ", ")
+            metadata["com.lift.exercises"] = exerciseNames
+        }
+        
+        // Add notes if available
+        if let notes = workout.notes, !notes.isEmpty {
+            metadata["com.lift.notes"] = notes
+        }
+        
+        // Create workout builder
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: workoutConfiguration, device: nil)
+        
+        // Begin collection
+        try await builder.beginCollection(at: startDate)
+        
+        // Add active energy burned if available
+        if let calories = calories {
+            let energyQuantityType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
+            let energySample = HKQuantitySample(
+                type: energyQuantityType,
+                quantity: calories,
+                start: startDate,
+                end: endDate
+            )
+            
+            // Use withCheckedThrowingContinuation to bridge async and completion handler approaches
+            _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                builder.add([energySample]) { success, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: success)
+                    }
+                }
+            }
+        }
+        
+        // End collection
+        try await builder.endCollection(at: endDate)
+        
+        // Add metadata
+        try await builder.addMetadata(metadata)
+        
+        // Finish the workout
+        // Use withCheckedThrowingContinuation to bridge async and completion handler approaches 
+        let workout = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HKWorkout, Error>) in
+            builder.finishWorkout { workout, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let workout = workout {
+                    continuation.resume(returning: workout)
+                } else {
+                    continuation.resume(throwing: NSError(domain: "HealthKitManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown error finishing workout"]))
+                }
+            }
+        }
+        
+        // Success - refresh the recent workouts list
+        await self.fetchRecentWorkouts(completion: { _, _ in })
+        
+        return
+    }
+    
+    // Keep the completion handler version for backward compatibility
     func saveWorkout(_ workout: AppWorkout, completion: @escaping (Bool, Error?) -> Void = {_, _ in }) {
         // Check if HealthKit is available and authorized
         guard isHealthKitAvailable, isAuthorized else {
@@ -181,32 +278,87 @@ class HealthKitManager: ObservableObject {
             metadata["com.lift.notes"] = notes
         }
         
-        // Create the HKWorkout object
-        let hkWorkout = HKWorkout(
-            activityType: .traditionalStrengthTraining,
-            start: startDate,
-            end: endDate,
-            duration: workout.duration,
-            totalEnergyBurned: calories,
-            totalDistance: nil,
-            metadata: metadata
-        )
+        // Create workout builder
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: workoutConfiguration, device: nil)
         
-        // Save to HealthKit
-        healthStore.save(hkWorkout) { [weak self] (success, error) in
-            DispatchQueue.main.async {
-                if success {
-                    // Refresh the list of workouts
-                    self?.fetchRecentWorkouts(completion: { _, _ in })
+        // Use Task to manage async operations without mixing async/await with completion handlers
+        Task {
+            do {
+                // Begin collection
+                try await builder.beginCollection(at: startDate)
+                
+                // Add active energy burned if available
+                if let calories = calories {
+                    let energyQuantityType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
+                    let energySample = HKQuantitySample(
+                        type: energyQuantityType,
+                        quantity: calories,
+                        start: startDate,
+                        end: endDate
+                    )
+                    
+                    // Use withCheckedThrowingContinuation to bridge async and completion handler approaches
+                    _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                        builder.add([energySample]) { success, error in
+                            if let error = error {
+                                continuation.resume(throwing: error)
+                            } else {
+                                continuation.resume(returning: success)
+                            }
+                        }
+                    }
                 }
-                completion(success, error)
+                
+                // End collection
+                try await builder.endCollection(at: endDate)
+                
+                // Add metadata
+                try await builder.addMetadata(metadata)
+                
+                // Finish the workout
+                // Use withCheckedThrowingContinuation to bridge async and completion handler approaches 
+                _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HKWorkout, Error>) in
+                    builder.finishWorkout { workout, error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else if let workout = workout {
+                            continuation.resume(returning: workout)
+                        } else {
+                            continuation.resume(throwing: NSError(domain: "HealthKitManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown error finishing workout"]))
+                        }
+                    }
+                }
+                
+                // Success path
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    // Use Task.detached to avoid capturing self directly
+                    Task.detached {
+                        // Capture only what's needed from self
+                        await MainActor.run {
+                            self.fetchRecentWorkouts(completion: { _, _ in })
+                            completion(true, nil)
+                        }
+                    }
+                }
+            } catch {
+                // Error path
+                DispatchQueue.main.async {
+                    // Use Task to keep consistency with the success path
+                    Task.detached {
+                        await MainActor.run {
+                            completion(false, error)
+                        }
+                    }
+                }
             }
         }
     }
     
     // MARK: - Heart Rate Monitoring
     
-    func startHeartRateQuery(quantityTypeIdentifier: HKQuantityTypeIdentifier, completion: @escaping (Double) -> Void) {
+    func startHeartRateQuery(quantityTypeIdentifier: HKQuantityTypeIdentifier, completion: @escaping (Double) -> Void) async {
         // Ensure HealthKit is available and authorized
         guard HKHealthStore.isHealthDataAvailable() else { return }
         
@@ -222,76 +374,94 @@ class HealthKitManager: ObservableObject {
         // Sort descriptor to get the most recent sample
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         
-        // Create a sample query to fetch the most recent heart rate
-        let query = HKSampleQuery(
-            sampleType: heartRateType,
-            predicate: predicate,
-            limit: 1,
-            sortDescriptors: [sortDescriptor]
-        ) { (query, samples, error) in
-            guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
-                return
-            }
-            
-            let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
-            let heartRate = samples.first!.quantity.doubleValue(for: heartRateUnit)
-            
-            DispatchQueue.main.async {
-                completion(heartRate)
-            }
-        }
-        
-        // Execute the query
-        healthStore.execute(query)
-    }
-    
-    // New method for continuous heart rate monitoring
-    func setupContinuousHeartRateObserver(completion: @escaping (Double) -> Void) -> HKQuery? {
-        guard HKHealthStore.isHealthDataAvailable() else { return nil }
-        
-        let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
-        
-        // Create an observer query
-        let query = HKObserverQuery(sampleType: heartRateType, predicate: nil) { [weak self] (query, completionHandler, error) in
-            guard error == nil else {
-                print("Error in heart rate observer query: \(error!.localizedDescription)")
-                completionHandler()
-                return
-            }
-            
-            // Fetch the most recent heart rate sample
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            
-            let sampleQuery = HKSampleQuery(
+        // Use Task-based approach to execute the query
+        Task { @MainActor in
+            // Create a sample query to fetch the most recent heart rate
+            let query = HKSampleQuery(
                 sampleType: heartRateType,
-                predicate: nil,
+                predicate: predicate,
                 limit: 1,
                 sortDescriptors: [sortDescriptor]
             ) { (query, samples, error) in
                 guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
-                    completionHandler()
                     return
                 }
                 
                 let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
                 let heartRate = samples.first!.quantity.doubleValue(for: heartRateUnit)
                 
-                DispatchQueue.main.async {
-                    completion(heartRate)
-                }
-                
-                completionHandler()
+                completion(heartRate)
             }
             
-            self?.healthStore.execute(sampleQuery)
+            // Execute the query
+            self.healthStore.execute(query)
+        }
+    }
+    
+    // MARK: - Continuous Heart Rate Monitoring
+    
+    func setupContinuousHeartRateObserver(updateHandler: @escaping (Double) -> Void) async -> HKQuery {
+        // Ensure HealthKit is available and authorized
+        guard HKHealthStore.isHealthDataAvailable() else {
+            // Create a dummy query that won't do anything
+            let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+            return HKObserverQuery(sampleType: heartRateType, predicate: nil) { _, _, _ in }
         }
         
-        // Execute the observer query
+        let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        
+        // Create an anchor date 1 minute in the past
+        let anchorDate = Date().addingTimeInterval(-60)
+        let predicate = HKQuery.predicateForSamples(withStart: anchorDate, end: nil, options: .strictEndDate)
+        
+        // Set up a continuous query
+        let query = HKAnchoredObjectQuery(
+            type: heartRateType,
+            predicate: predicate,
+            anchor: nil,
+            limit: HKObjectQueryNoLimit
+        ) { (query, samples, deletedObjects, anchor, error) in
+            // Initial query results handler
+            guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
+                return
+            }
+            
+            // Use Task to dispatch to MainActor
+            Task { @MainActor in
+                self.processHeartRateSamples(samples, updateHandler: updateHandler)
+            }
+        }
+        
+        // Set up continuous updates
+        query.updateHandler = { (query, samples, deletedObjects, anchor, error) in
+            guard let samples = samples as? [HKQuantitySample], !samples.isEmpty else {
+                return
+            }
+            
+            // Instead of directly calling actor-isolated method, use Task
+            Task { @MainActor in
+                self.processHeartRateSamples(samples, updateHandler: updateHandler)
+            }
+        }
+        
+        // Execute the query
         healthStore.execute(query)
+        
         return query
     }
     
-    // Optional: Add a method to stop a specific query if needed
+    private func processHeartRateSamples(_ samples: [HKQuantitySample], updateHandler: @escaping (Double) -> Void) {
+        // No need for DispatchQueue.main.async here as we're now always called from MainActor context
+        // Process the new heart rate samples
+        let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+        
+        // Get the most recent sample
+        if let mostRecentSample = samples.last {
+            let heartRate = mostRecentSample.quantity.doubleValue(for: heartRateUnit)
+            updateHandler(heartRate)
+        }
+    }
+    
     func stopQuery(_ query: HKQuery) {
         healthStore.stop(query)
     }
@@ -326,5 +496,12 @@ class HealthKitManager: ObservableObject {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    // Non-actor-isolated method that can be safely called from deinit
+    nonisolated func safeStopQuery(_ query: HKQuery) {
+        // This is safe to call from any context since HKHealthStore.stop is thread-safe
+        let healthStore = HKHealthStore()
+        healthStore.stop(query)
     }
 }

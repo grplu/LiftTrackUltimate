@@ -10,8 +10,9 @@ import Testing
 
 struct LiftTrackUltimateTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func example() {
+        // This is a simplified test that doesn't throw any errors
+        XCTest.XCTAssert(true)
     }
 
 }

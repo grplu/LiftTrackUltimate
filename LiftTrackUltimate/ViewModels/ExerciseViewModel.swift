@@ -64,7 +64,7 @@ class ExerciseViewModel: ObservableObject {
                               isFavorite: false,
                               equipment: nil)
         
-        if let existingPerformance = getExercisePerformance(exercise) {
+        if getExercisePerformance(exercise) != nil {
             dataService.updateExercisePerformance(performance)
         } else {
             dataService.saveExercisePerformance(performance)

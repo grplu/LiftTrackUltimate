@@ -107,7 +107,7 @@ struct EditExerciseView: View {
                                 TextField("", text: $name)
                                     .foregroundColor(.white)
                                     .focused($focusedField, equals: .name)
-                                    .onChange(of: name) { newValue in
+                                    .onChange(of: name) { oldValue, newValue in
                                         updateSaveButtonState()
                                     }
                             }

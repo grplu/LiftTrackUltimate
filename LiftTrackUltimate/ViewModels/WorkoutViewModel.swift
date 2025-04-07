@@ -104,23 +104,28 @@ class WorkoutViewModel: ObservableObject {
     
     // MARK: - Workout Statistics
     func getWorkoutStats(for workout: AppWorkout) -> WorkoutStats {
-        let totalWorkouts = 1
-        let totalExercises = workout.exercises.count
-        let completedSets = workout.exercises.reduce(0) { count, exercise in
-            count + exercise.sets.filter { $0.completed }.count
-        }
-        let totalSets = workout.exercises.reduce(0) { count, exercise in
-            count + exercise.sets.count
-        }
+        // Calculate total weight lifted
         let totalWeight = workout.exercises.reduce(0.0) { total, exercise in
             total + exercise.sets.reduce(0.0) { $0 + ($1.weight ?? 0.0) }
         }
         
+        // Create PersonalBests dictionary
+        var personalBests: [String: Double] = [:]
+        for exercise in workout.exercises {
+            let maxWeight = exercise.sets.compactMap { $0.weight }.max() ?? 0.0
+            if maxWeight > 0 {
+                personalBests[exercise.exercise.name] = maxWeight
+            }
+        }
+        
         var stats = WorkoutStats()
-        stats.totalWorkouts = totalWorkouts
+        stats.totalWorkouts = 1
         stats.totalDuration = workout.duration
         stats.caloriesBurned = 0 // Would need heart rate data for better estimate
         stats.averageHeartRate = 0 // Would come from HealthKit
+        stats.personalBests = personalBests
+        stats.totalWeight = totalWeight // Add the total weight to the stats
+        
         return stats
     }
 } 

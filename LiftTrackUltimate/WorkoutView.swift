@@ -20,112 +20,111 @@ struct WorkoutView: View {
     @State private var confirmingTemplateId: UUID? = nil
     
     var body: some View {
-        ZStack {
-            // Background gradient
-            WorkoutBackgroundView(confirmingTemplateId: $confirmingTemplateId)
-            
-            // Main content
-            VStack(spacing: 0) {
-                // Header with title and dropdown
-                WorkoutHeaderView(
-                    selectedBodyPart: $selectedBodyPart,
-                    showDropdown: $showDropdown,
-                    confirmingTemplateId: $confirmingTemplateId
-                )
+        NavigationStack {
+            ZStack {
+                // Background gradient
+                WorkoutBackgroundView(confirmingTemplateId: $confirmingTemplateId)
                 
-                // Header with welcome text
-                WorkoutWelcomeView()
+                // Main content
+                VStack(spacing: 0) {
+                    // Header with title and dropdown
+                    WorkoutHeaderView(
+                        selectedBodyPart: $selectedBodyPart,
+                        showDropdown: $showDropdown,
+                        confirmingTemplateId: $confirmingTemplateId
+                    )
+                    
+                    // Header with welcome text
+                    WorkoutWelcomeView()
+                    
+                    // Templates Grid
+                    WorkoutTemplatesGridView(
+                        filteredTemplates: filteredTemplates,
+                        animateCards: animateCards,
+                        confirmingTemplateId: $confirmingTemplateId,
+                        onSelectTemplate: { template in
+                            selectedTemplate = template
+                            isWorkoutActive = true
+                        },
+                        onEditTemplate: { template in
+                            templateToEdit = template
+                            showingEditSheet = true
+                        },
+                        onDeleteTemplate: { template in
+                            templateToDelete = template
+                            showingDeleteAlert = true
+                        },
+                        onCreateTemplate: {
+                            showingCreateTemplateSheet = true
+                        }
+                    )
+                }
                 
-                // Templates Grid
-                WorkoutTemplatesGridView(
-                    filteredTemplates: filteredTemplates,
-                    animateCards: animateCards,
-                    confirmingTemplateId: $confirmingTemplateId,
-                    onSelectTemplate: { template in
-                        selectedTemplate = template
-                        isWorkoutActive = true
-                    },
-                    onEditTemplate: { template in
-                        templateToEdit = template
-                        showingEditSheet = true
-                    },
-                    onDeleteTemplate: { template in
-                        templateToDelete = template
-                        showingDeleteAlert = true
-                    },
-                    onCreateTemplate: {
-                        showingCreateTemplateSheet = true
-                    }
-                )
-                
-                // Navigation to ActiveWorkoutView when a template is selected
-                NavigationLink(
-                    destination: ActiveWorkoutView(
-                        template: selectedTemplate,
+                // Dropdown overlay
+                if showDropdown {
+                    WorkoutDropdownView(
+                        bodyParts: bodyParts,
+                        selectedBodyPart: $selectedBodyPart,
+                        showDropdown: $showDropdown,
+                        confirmingTemplateId: $confirmingTemplateId,
+                        bodyPartIcon: bodyPartIcon
+                    )
+                }
+            }
+            .navigationDestination(isPresented: $isWorkoutActive) {
+                if let template = selectedTemplate {
+                    ActiveWorkoutView(
+                        template: template,
                         onEnd: {
                             isWorkoutActive = false
                             selectedTemplate = nil
                         }
-                    ),
-                    isActive: $isWorkoutActive
-                ) {
-                    EmptyView()
+                    )
                 }
             }
-            
-            // Dropdown overlay
-            if showDropdown {
-                WorkoutDropdownView(
-                    bodyParts: bodyParts,
-                    selectedBodyPart: $selectedBodyPart,
-                    showDropdown: $showDropdown,
-                    confirmingTemplateId: $confirmingTemplateId,
-                    bodyPartIcon: bodyPartIcon
-                )
+            .alert("Delete Template", isPresented: $showingDeleteAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    if let template = templateToDelete {
+                        dataManager.deleteTemplate(template)
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to delete this template? This action cannot be undone.")
             }
-        }
-        .alert("Delete Template", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let template = templateToDelete {
-                    dataManager.deleteTemplate(template)
+            .sheet(isPresented: $showingEditSheet) {
+                if let template = templateToEdit {
+                    // CHANGED: Using EnhancedTemplateCreationView instead of EditTemplateView
+                    EnhancedTemplateCreationView(
+                        existingTemplate: template,
+                        onSave: { updatedTemplate in
+                            dataManager.updateTemplate(updatedTemplate)
+                        }
+                    )
+                    .environmentObject(dataManager)
                 }
             }
-        } message: {
-            Text("Are you sure you want to delete this template? This action cannot be undone.")
-        }
-        .sheet(isPresented: $showingEditSheet) {
-            if let template = templateToEdit {
-                // CHANGED: Using EnhancedTemplateCreationView instead of EditTemplateView
+            .sheet(isPresented: $showingCreateTemplateSheet) {
                 EnhancedTemplateCreationView(
-                    existingTemplate: template,
-                    onSave: { updatedTemplate in
-                        dataManager.updateTemplate(updatedTemplate)
+                    existingTemplate: nil,  // Explicitly pass nil since we're creating a new template
+                    onSave: { newTemplate in
+                        dataManager.saveTemplate(newTemplate)
                     }
                 )
                 .environmentObject(dataManager)
             }
-        }
-        .sheet(isPresented: $showingCreateTemplateSheet) {
-            EnhancedTemplateCreationView(
-                existingTemplate: nil,  // Explicitly pass nil since we're creating a new template
-                onSave: { newTemplate in
-                    dataManager.saveTemplate(newTemplate)
-                }
-            )
-            .environmentObject(dataManager)
-        }
-        .onAppear {
-            // Animate cards when view appears
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation {
-                    animateCards = true
+            .onAppear {
+                // Animate cards when view appears
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation {
+                        animateCards = true
+                    }
                 }
             }
-        }
-        .onDisappear {
-            withAnimation(.easeOut(duration: 0.2)) {
-                confirmingTemplateId = nil
+            .onDisappear {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    confirmingTemplateId = nil
+                }
             }
         }
     }

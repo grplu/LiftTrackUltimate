@@ -1,7 +1,6 @@
 import SwiftUI
 import Foundation
 // Import necessary models
-import LiftTrackUltimate
 
 struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss

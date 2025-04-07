@@ -5,6 +5,7 @@ extension Notification.Name {
     static let workoutDataChanged = Notification.Name("workoutDataChanged")
 }
 
+@MainActor
 class DataManager: ObservableObject {
     static let shared = DataManager()
     
@@ -200,8 +201,14 @@ class DataManager: ObservableObject {
         workouts.insert(workout, at: 0)
         saveWorkouts()
         
-        // Also save to HealthKit
-        HealthKitManager.shared.saveWorkout(workout)
+        // Also save to HealthKit using Task to handle async call
+        Task {
+            do {
+                try await HealthKitManager.shared.saveWorkout(workout)
+            } catch {
+                print("Error saving workout to HealthKit: \(error.localizedDescription)")
+            }
+        }
         
         debugLog("saveWorkout - Saved workout \(workout.name) with date \(workout.date)")
         debugLog("saveWorkout - Total exercises: \(workout.exercises.count)")
@@ -576,7 +583,7 @@ class DataManager: ObservableObject {
         
         // Get the date for Monday of the current week
         let calendar = Calendar.current
-        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
         let mondayDate = calendar.date(from: components)!
         
         debugLog("Monday date for this week is \(mondayDate.formatted(.dateTime.day().month().year()))")

@@ -108,7 +108,7 @@ struct ActiveWorkoutView: View {
                 }
                 .frame(height: 24) // Increased height to accommodate the bubble ON the bar
                 // onChange modifier to detect 100% completion
-                .onChange(of: completionPercentage) { newValue in
+                .onChange(of: completionPercentage) { oldValue, newValue in
                     // Check if we've just reached 100%
                     if newValue >= 100 && lastCompletionPercentage < 100 {
                         withAnimation {
@@ -851,7 +851,7 @@ struct DetailedSetRow: View {
                     .foregroundColor(.white)
                     .focused(focusedField, equals: weightFieldId)
                     .opacity(focusedField.wrappedValue == weightFieldId ? 1 : 0)
-                    .onChange(of: weightText) { newValue in
+                    .onChange(of: weightText) { oldValue, newValue in
                         let cleanedValue = newValue.replacingOccurrences(of: ",", with: ".")
                         if cleanedValue.isEmpty {
                             onUpdateWeight(nil)
@@ -887,7 +887,7 @@ struct DetailedSetRow: View {
                     .foregroundColor(.white)
                     .focused(focusedField, equals: repsFieldId)
                     .opacity(focusedField.wrappedValue == repsFieldId ? 1 : 0)
-                    .onChange(of: repsText) { newValue in
+                    .onChange(of: repsText) { oldValue, newValue in
                         if newValue.isEmpty {
                             onUpdateReps(nil)
                         } else if let value = Int(newValue) {
